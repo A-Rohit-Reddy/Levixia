@@ -1,46 +1,63 @@
 import React, { useState } from 'react';
-import { spellingScore } from '../../utils/levenshtein';
 
-const WORDS = [
-  'beautiful',
-  'necessary',
-  'because',
-  'definitely',
-  'separate',
-];
+const WORDS = ['beautiful', 'necessary', 'because', 'definitely', 'separate'];
+
+// Embedded Levenshtein Algorithm for standalone functionality
+const calculateSimilarity = (a, b) => {
+  if (a.length === 0) return b.length; 
+  if (b.length === 0) return a.length; 
+
+  const matrix = [];
+
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+        );
+      }
+    }
+  }
+
+  const distance = matrix[b.length][a.length];
+  const maxLength = Math.max(a.length, b.length);
+  return Math.max(0, ((maxLength - distance) / maxLength) * 100);
+};
 
 export default function SpellingTest({ onComplete }) {
-  const [currentWord, setCurrentWord] = useState(0);
-  const [answers, setAnswers] = useState([]);
-  const [inputValue, setInputValue] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [results, setResults] = useState([]);
+  const [input, setInput] = useState('');
 
-  const speakWord = (word) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(word);
-      utterance.rate = 0.8;
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-    }
+  const playWord = (word) => {
+    const utterance = new SpeechSynthesisUtterance(word);
+    utterance.rate = 0.8; 
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleNext = () => {
-    const userAnswer = inputValue.trim();
-    const newAnswers = [...answers, { word: WORDS[currentWord], userAnswer }];
-    setAnswers(newAnswers);
-    setInputValue('');
+    const word = WORDS[currentIndex];
+    const score = calculateSimilarity(input.toLowerCase().trim(), word);
+    
+    const newResults = [...results, { word, input, score }];
+    setResults(newResults);
+    setInput('');
 
-    if (currentWord < WORDS.length - 1) {
-      setCurrentWord(currentWord + 1);
+    if (currentIndex < WORDS.length - 1) {
+      setCurrentIndex(prev => prev + 1);
     } else {
-      const scores = newAnswers.map((a) => spellingScore(a.word, a.userAnswer));
-      const accuracyPercent = Math.round(
-        scores.reduce((sum, s) => sum + s, 0) / scores.length
-      );
+      // Calculate final average
+      const avgAccuracy = Math.round(newResults.reduce((a, b) => a + b.score, 0) / newResults.length);
       onComplete({
         type: 'spelling',
-        answers: newAnswers,
-        scores,
-        accuracyPercent,
+        accuracyPercent: avgAccuracy,
+        details: newResults
       });
     }
   };
@@ -48,44 +65,27 @@ export default function SpellingTest({ onComplete }) {
   return (
     <div className="assessment-card">
       <h2>✍️ Spelling Assessment</h2>
-      <p>
-        Listen to each word and type it in the box below. You can replay the word as many times as needed.
-      </p>
+      <p>Word {currentIndex + 1} of {WORDS.length}</p>
 
-      <div style={{ textAlign: 'center', marginBottom: '2rem', color: 'var(--levixia-text-muted)' }}>
-        Word {currentWord + 1} of {WORDS.length}
-      </div>
-
-      <div className="word-prompt">
-        <h3>Word #{currentWord + 1}</h3>
-        <button
-          type="button"
-          className="play-audio-btn"
-          onClick={() => speakWord(WORDS[currentWord])}
-        >
-          🔊 Play Word
+      <div style={{ margin: '2rem 0', textAlign: 'center' }}>
+        <button className="play-audio-btn" onClick={() => playWord(WORDS[currentIndex])}>
+           🔊 Listen to Word
         </button>
       </div>
 
-      <input
-        type="text"
+      <input 
         className="spelling-input"
-        placeholder="Type the word here..."
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && inputValue.trim() && handleNext()}
+        type="text" 
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && handleNext()}
+        placeholder="Type what you hear..."
         autoFocus
-        autoComplete="off"
       />
 
       <div className="button-group">
-        <button
-          type="button"
-          className="primary-btn"
-          onClick={handleNext}
-          disabled={!inputValue.trim()}
-        >
-          {currentWord < WORDS.length - 1 ? 'Next Word' : 'Complete Spelling Test'}
+        <button className="primary-btn" onClick={handleNext} disabled={!input}>
+            {currentIndex === WORDS.length - 1 ? 'Finish Test' : 'Next Word'}
         </button>
       </div>
     </div>

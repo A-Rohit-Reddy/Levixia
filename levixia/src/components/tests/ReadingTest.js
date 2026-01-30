@@ -1,204 +1,124 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const PASSAGE =
-  'The quick brown fox jumps over the lazy dog. Reading comprehension is essential for academic success and daily life. Many people with dyslexia develop strong problem-solving skills and creative thinking abilities. With the right support and tools, everyone can become a confident reader. Technology has made significant advances in accessibility, providing personalized learning experiences for individuals with different learning needs.';
+// ----------------------------------------------------------------------
+// MOCK AI SERVICE (Replace with real API)
+// ----------------------------------------------------------------------
+const AIService = {
+  // 1. Generate a unique story based on user age/level
+  fetchReadingPassage: async () => {
+    // Prompt: "Generate a 3-sentence story for a 10-year-old. Include words with 'th' and 'sh' sounds."
+    return new Promise(resolve => setTimeout(() => resolve({
+      text: "The giant ship sailed across the shiny ocean. Three distinct thoughts came to the captain's mind. 'We must share our treasure with the shore,' he shouted.",
+      difficulty: "Medium"
+    }), 1500));
+  },
 
-function normalizeForCompare(text) {
-  return (text || '')
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function wordCount(text) {
-  return normalizeForCompare(text).split(/\s+/).filter(Boolean).length;
-}
-
-function computeAccuracy(spoken, target) {
-  const spokenWords = normalizeForCompare(spoken).split(/\s+/).filter(Boolean);
-  const targetWords = normalizeForCompare(target).split(/\s+/).filter(Boolean);
-  if (targetWords.length === 0) return 100;
-  let correct = 0;
-  const minLen = Math.min(spokenWords.length, targetWords.length);
-  for (let i = 0; i < minLen; i++) {
-    if (spokenWords[i] === targetWords[i]) correct++;
+  // 2. Analyze the recording transcript using NLP
+  analyzeReading: async (original, transcript, time) => {
+    // Prompt: "Compare these two texts. Calculate WPM. Identify if errors are phonological (sound-based) or visual (skipping lines)."
+    console.log("Analyzing:", transcript);
+    return new Promise(resolve => setTimeout(() => resolve({
+      accuracy: 88,
+      wpm: 110,
+      feedback: "User struggles with 'sh' blends (ship/sip), indicating phonological processing issues.",
+      errorType: "Phonological"
+    }), 2000));
   }
-  return targetWords.length > 0 ? Math.round((correct / targetWords.length) * 100) : 0;
-}
+};
 
 export default function ReadingTest({ onComplete }) {
+  const [status, setStatus] = useState('loading'); // loading, ready, recording, analyzing
+  const [passage, setPassage] = useState('');
+  
   const [isRecording, setIsRecording] = useState(false);
-  const [timeElapsed, setTimeElapsed] = useState(0);
   const [transcript, setTranscript] = useState('');
-  const [hasRecorded, setHasRecorded] = useState(false);
-  const [error, setError] = useState('');
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
-  const startTimeRef = useRef(null);
 
+  // --- Step 1: Get Content from AI ---
   useEffect(() => {
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.abort?.();
-          recognitionRef.current.stop?.();
-        } catch (_) {}
-      }
-    };
+    AIService.fetchReadingPassage().then(data => {
+      setPassage(data.text);
+      setStatus('ready');
+    });
   }, []);
 
   const startRecording = () => {
-    setError('');
     setTranscript('');
-    setHasRecorded(false);
     setTimeElapsed(0);
+    setStatus('recording');
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('Speech recognition is not supported in this browser. Try Chrome or Edge.');
-      return;
-    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Browser not supported");
 
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.lang = 'en-US';
-      recognition.maxAlternatives = 1;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
 
-      let fullTranscript = '';
-      recognition.onresult = (event) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            fullTranscript += (fullTranscript ? ' ' : '') + result[0].transcript;
-            setTranscript(fullTranscript);
-          }
-        }
-      };
-      recognition.onerror = (e) => {
-        if (e.error !== 'aborted') setError('Speech recognition error. Please try again.');
-      };
-      recognition.onend = () => {
-        setIsRecording(false);
-        if (timerRef.current) clearInterval(timerRef.current);
-      };
+    recognition.onresult = (event) => {
+      let final = '';
+      for (let i = 0; i < event.results.length; i++) {
+        final += event.results[i][0].transcript + ' ';
+      }
+      setTranscript(final);
+    };
 
-      recognition.start();
-      recognitionRef.current = recognition;
-      setIsRecording(true);
-      startTimeRef.current = Date.now();
-      timerRef.current = setInterval(() => {
-        setTimeElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
-      }, 1000);
-    } catch (err) {
-      setError('Could not start speech recognition.');
-    }
+    recognition.start();
+    recognitionRef.current = recognition;
+    setIsRecording(true);
+
+    timerRef.current = setInterval(() => {
+      setTimeElapsed(prev => prev + 1);
+    }, 1000);
   };
 
-  const stopRecording = () => {
-    if (recognitionRef.current && isRecording) {
-      try {
-        recognitionRef.current.stop();
-      } catch (_) {}
-      recognitionRef.current = null;
-    }
+  const stopAndGrade = async () => {
+    if (recognitionRef.current) recognitionRef.current.stop();
+    clearInterval(timerRef.current);
     setIsRecording(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-    setHasRecorded(true);
+    setStatus('analyzing');
+
+    // --- Step 2: Send to AI for NLP Grading ---
+    try {
+      const report = await AIService.analyzeReading(passage, transcript, timeElapsed);
+      
+      onComplete({
+        type: 'reading',
+        accuracyPercent: report.accuracy,
+        wpm: report.wpm,
+        aiDiagnosis: report.feedback, // The "Perfect Data"
+        rawTranscript: transcript
+      });
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleSubmit = () => {
-    if (!hasRecorded) return;
-    const elapsed = timeElapsed || 1;
-    const words = wordCount(transcript);
-    const wpm = Math.round((words / elapsed) * 60);
-    const accuracyPercent = computeAccuracy(transcript, PASSAGE);
-    onComplete({
-      type: 'reading',
-      transcript,
-      passage: PASSAGE,
-      timeElapsed: elapsed,
-      wordCount: words,
-      wpm,
-      accuracyPercent,
-    });
-  };
+  if (status === 'loading') return <div className="assessment-card"><h2>🤖 AI is writing a story for you...</h2></div>;
+  if (status === 'analyzing') return <div className="assessment-card"><h2>🧠 AI is listening to your reading...</h2></div>;
 
   return (
     <div className="assessment-card">
       <h2>📖 Reading Assessment</h2>
-      <p>
-        Read the passage aloud. Click the microphone to start, then read clearly at your natural pace. Click stop when finished.
-      </p>
-
-      {error && (
-        <div className="alert alert-error" role="alert" style={{ marginBottom: '1rem' }}>
-          {error}
-        </div>
-      )}
-
-      {isRecording && (
-        <div className="timer">
-          ⏱️ Time: {Math.floor(timeElapsed / 60)}:{(timeElapsed % 60).toString().padStart(2, '0')}
-        </div>
-      )}
-
-      <div className="reading-passage">{PASSAGE}</div>
-
-      <div className={`voice-recorder ${isRecording ? 'recording' : ''}`}>
-        <h3>
-          {isRecording ? '🔴 Recording...' : hasRecorded ? '✅ Recording Complete' : '🎤 Ready to Record'}
-        </h3>
-        <p style={{ marginBottom: '1rem', color: 'var(--levixia-text-muted)' }}>
-          {isRecording
-            ? 'Click the button to stop recording'
-            : hasRecorded
-            ? 'You can re-record if needed'
-            : 'Click the microphone to start recording'}
-        </p>
-
-        {isRecording && (
-          <div className="audio-visualizer">
-            {[...Array(20)].map((_, i) => (
-              <div
-                key={i}
-                className="visualizer-bar"
-                style={{ height: `${10 + Math.random() * 30}px` }}
-              />
-            ))}
-          </div>
-        )}
-
-        <button
-          type="button"
-          className={`record-button ${isRecording ? 'recording' : ''}`}
-          onClick={isRecording ? stopRecording : startRecording}
-          aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-        >
-          {isRecording ? '⏹️' : '🎤'}
-        </button>
-
-        {hasRecorded && (
-          <div style={{ marginTop: '1rem' }}>
-            <p style={{ color: 'var(--levixia-success)', fontWeight: '600' }}>
-              ✓ Recording saved ({timeElapsed} seconds)
-            </p>
-          </div>
-        )}
+      <p>Read the story below aloud.</p>
+      
+      <div className="reading-passage" style={{ fontSize: '1.2rem', lineHeight: '1.6', margin: '2rem 0', padding: '1.5rem', background: '#f5f5f5', borderRadius: '8px' }}>
+        {passage}
       </div>
 
-      <div className="button-group">
-        <button
-          type="button"
-          className="primary-btn"
-          onClick={handleSubmit}
-          disabled={!hasRecorded}
+      <div className="voice-recorder">
+        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>
+          {isRecording ? `🔴 ${timeElapsed}s` : 'Ready'}
+        </div>
+        
+        <button 
+          className={`record-button ${isRecording ? 'recording' : ''}`}
+          onClick={isRecording ? stopAndGrade : startRecording}
         >
-          Continue to Next Test
+          {isRecording ? 'Stop & Grade' : 'Start Recording'}
         </button>
       </div>
     </div>

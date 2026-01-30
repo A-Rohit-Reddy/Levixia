@@ -13,6 +13,7 @@ function buildRandomGrid() {
   for (let i = 0; i < distractorCount; i++) {
     letters.push(distractors[Math.floor(Math.random() * distractors.length)]);
   }
+  // Shuffle
   for (let i = letters.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [letters[i], letters[j]] = [letters[j], letters[i]];
@@ -27,20 +28,42 @@ export default function VisualTest({ onComplete }) {
 
   const correctTotal = letters.filter((l) => l === target).length;
 
-  const handleLetterClick = (letter, index) => {
-    if (letter !== target || selectedIndices.includes(index)) return;
+  // FIX 1: Allow clicking ANY letter (even wrong ones)
+  const handleLetterClick = (index) => {
+    // If already selected, do nothing
+    if (selectedIndices.includes(index)) return;
+    
+    // Add to selected list regardless of whether it's correct or not
     setSelectedIndices((prev) => [...prev, index]);
   };
 
   const handleSubmit = () => {
     const timeElapsed = (Date.now() - startTime) / 1000;
-    const correctSelected = selectedIndices.filter((i) => letters[i] === target).length;
-    const accuracy = correctTotal > 0 ? Math.round((correctSelected / correctTotal) * 100) : 0;
+    
+    // FIX 2: Calculate Hits vs. False Positives (Errors)
+    let hits = 0;
+    let falsePositives = 0;
+
+    selectedIndices.forEach((index) => {
+      if (letters[index] === target) {
+        hits++;
+      } else {
+        falsePositives++;
+      }
+    });
+
+    // Accuracy Formula: (Hits - False Positives) / Total Possible Targets
+    // This penalizes random guessing.
+    const rawAccuracy = ((hits - falsePositives) / correctTotal) * 100;
+    const accuracy = Math.max(0, Math.round(rawAccuracy)); // Prevent negative scores
+
     onComplete({
       type: 'visual',
       target,
       correctCount: correctTotal,
-      selectedCount: correctSelected,
+      selectedCount: selectedIndices.length,
+      hits,
+      falsePositives, // Useful for the report (shows impulsivity)
       timeElapsed: Math.round(timeElapsed * 10) / 10,
       accuracy,
     });
@@ -50,7 +73,7 @@ export default function VisualTest({ onComplete }) {
     <div className="assessment-card">
       <h2>👁️ Visual Processing Test</h2>
       <p>
-        Click on all the letters <strong>"{target}"</strong> as quickly and accurately as you can. Similar letters are present to test visual discrimination.
+        Click on all the letters <strong>"{target}"</strong>. Be careful not to click the wrong ones!
       </p>
 
       <div style={{ textAlign: 'center', margin: '2rem 0' }}>
@@ -58,7 +81,7 @@ export default function VisualTest({ onComplete }) {
           Target Letter: <span style={{ fontSize: '3rem' }}>{target}</span>
         </div>
         <div style={{ marginTop: '1rem', color: 'var(--levixia-text-muted)' }}>
-          Selected: {selectedIndices.length} / {correctTotal}
+          Selected: {selectedIndices.length}
         </div>
       </div>
 
@@ -68,12 +91,13 @@ export default function VisualTest({ onComplete }) {
             key={`${index}-${letter}`}
             role="button"
             tabIndex={0}
-            className={`letter-card ${selectedIndices.includes(index) ? 'target' : ''}`}
-            onClick={() => handleLetterClick(letter, index)}
+            // Use a neutral class 'selected' instead of 'target' for visual feedback
+            className={`letter-card ${selectedIndices.includes(index) ? 'selected' : ''}`}
+            onClick={() => handleLetterClick(index)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                handleLetterClick(letter, index);
+                handleLetterClick(index);
               }
             }}
           >
