@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { useAssessment } from '../context/AssessmentContext';
 import { useUser } from '../context/UserContext';
 import { computeReportFromResults } from '../utils/diagnosisAlgorithm';
+import apiService from '../services/apiService';
 import ReadingTest from '../components/tests/ReadingTest';
 import SpellingTest from '../components/tests/SpellingTest';
 import VisualTest from '../components/tests/VisualTest';
@@ -13,14 +14,34 @@ import './AssessmentInteractive.css';
 export default function AssessmentInteractive() {
   const navigate = useNavigate();
   const { currentStepIndex, currentStep, totalSteps, progressPercent, results, completeStep, goBack } = useAssessment();
-  const { saveAssessmentResults, saveReport } = useUser();
+  const { saveAssessmentResults, saveReport, saveLearningProfile } = useUser();
 
   useEffect(() => {
     if (currentStepIndex >= totalSteps && results.reading && results.spelling && results.visual && results.cognitive) {
-      const report = computeReportFromResults(results);
-      saveAssessmentResults(results);
-      saveReport(report);
-      navigate('/report', { replace: true });
+      const generateReport = async () => {
+        try {
+          const report = await computeReportFromResults(results);
+          saveAssessmentResults(results);
+          saveReport(report);
+          
+          // Generate user learning profile after report is created
+          try {
+            const profile = await apiService.generateProfile(results, report);
+            saveLearningProfile(profile);
+            console.log('✅ User learning profile generated and saved');
+          } catch (profileError) {
+            console.warn('Profile generation failed, will be generated on assistant load:', profileError);
+          }
+          
+          navigate('/report', { replace: true });
+        } catch (error) {
+          console.error('Failed to generate report:', error);
+          // Still save results even if report generation fails
+          saveAssessmentResults(results);
+          navigate('/report', { replace: true });
+        }
+      };
+      generateReport();
     }
   }, [currentStepIndex, totalSteps, results, saveAssessmentResults, saveReport, navigate]);
 

@@ -7,11 +7,17 @@ import './Dashboard.css';
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { profile, report, progress } = useUser();
+  const { profile, report, progress, userLearningProfile } = useUser();
   const name = profile?.name || user?.name || 'there';
   const hasReport = report?.completed;
   const sessions = [...(progress?.readingSessions || []), ...(progress?.writingSessions || [])];
   const recentAccuracy = progress?.accuracyHistory?.slice(-5) || [];
+  
+  const activeFeatures = userLearningProfile?.enabledFeatures 
+    ? Object.entries(userLearningProfile.enabledFeatures)
+        .filter(([_, enabled]) => enabled)
+        .map(([feature]) => feature)
+    : [];
 
   return (
     <Layout>
@@ -56,6 +62,31 @@ export default function Dashboard() {
             )}
             {sessions.length === 0 && <p className="muted">Use the assistant to see your progress here.</p>}
           </div>
+
+          {userLearningProfile && (
+            <div className="card dashboard-card">
+              <h2>Your Adaptive Features</h2>
+              {activeFeatures.length > 0 ? (
+                <div>
+                  <p>Active features personalized for you:</p>
+                  <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
+                    {activeFeatures.map(feature => (
+                      <li key={feature} style={{ marginBottom: '0.25rem' }}>
+                        {feature.replace(/([A-Z])/g, ' $1').trim()}
+                      </li>
+                    ))}
+                  </ul>
+                  {userLearningProfile.learningStyle && (
+                    <p style={{ marginTop: '0.75rem', fontSize: '0.9rem', color: 'var(--levixia-text-muted)' }}>
+                      Learning style: {userLearningProfile.learningStyle.dominantModality || 'mixed'}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="muted">Complete assessment to enable personalized features.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Layout>

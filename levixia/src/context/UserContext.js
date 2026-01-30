@@ -76,6 +76,15 @@ export function UserProvider({ children }) {
     }
   });
 
+  const [userLearningProfile, setUserLearningProfile] = useState(() => {
+    try {
+      const saved = localStorage.getItem('levixia_learning_profile');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const updateProfile = useCallback((updates) => {
     setProfile((p) => {
       const next = { ...p, ...updates };
@@ -120,6 +129,19 @@ export function UserProvider({ children }) {
     });
   }, []);
 
+  const saveLearningProfile = useCallback((profile) => {
+    setUserLearningProfile(profile);
+    localStorage.setItem('levixia_learning_profile', JSON.stringify(profile));
+  }, []);
+
+  const updateLearningProfile = useCallback((updates) => {
+    setUserLearningProfile((p) => {
+      const next = p ? { ...p, ...updates, updatedAt: new Date().toISOString() } : updates;
+      localStorage.setItem('levixia_learning_profile', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
     <UserContext.Provider
       value={{
@@ -133,6 +155,9 @@ export function UserProvider({ children }) {
         updateAssistantConfig,
         progress,
         addProgressSession,
+        userLearningProfile,
+        saveLearningProfile,
+        updateLearningProfile,
         defaultReport,
         defaultAssistantConfig,
       }}

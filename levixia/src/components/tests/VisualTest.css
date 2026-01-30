@@ -1,0 +1,10 @@
+.selected-correct {
+    background: #2ecc71;
+    color: #fff;
+  }
+  
+  .selected-wrong {
+    background: #e74c3c;
+    color: #fff;
+  }
+  

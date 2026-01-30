@@ -14,6 +14,46 @@
   margin-bottom: 1.5rem;
 }
 
+.config-explanation {
+  font-style: italic;
+  color: var(--levixia-primary);
+}
+
+.recommendations-banner {
+  background: rgba(26, 95, 74, 0.1);
+  border-left: 4px solid var(--levixia-primary);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+}
+
+.processing-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: var(--levixia-text-muted);
+}
+
+.processing-indicator .spinner {
+  margin: 0 auto 1rem;
+}
+
+.reading-pace-info {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--levixia-text-muted);
+}
+
+.active-features {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--levixia-text-muted);
+  padding: 0.5rem;
+  background: rgba(26, 95, 74, 0.05);
+  border-radius: 4px;
+}
+
 .assistant-card {
   margin-bottom: 1rem;
 }

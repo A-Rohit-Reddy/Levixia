@@ -1,13 +1,91 @@
 /**
  * Diagnosis algorithm for interactive assessment results.
- * Analyzes aggregate data to flag dyslexia types and severity.
+ * Uses Holistic Screening Engine for comprehensive analysis.
  */
+
+import holisticScreeningEngine from '../services/holisticScreeningEngine';
 
 /**
  * @param {Object} results - { reading, spelling, visual, cognitive }
- * @returns {Object} report compatible with UserContext.report
+ * @returns {Promise<Object>} report compatible with UserContext.report
  */
-export function computeReportFromResults(results) {
+export async function computeReportFromResults(results) {
+  try {
+    // Use holistic screening engine for comprehensive analysis
+    const screeningResults = await holisticScreeningEngine.processResults(results);
+    
+    // Extract LLM-generated report or fallback
+    const llmReport = screeningResults.report || {};
+    const inference = screeningResults.inference || { types: ['None identified'], severity: 'Mild', confidence: 0.5 };
+    
+    // Map to existing report structure for compatibility
+    const dyslexiaTypes = inference.types || [];
+    const level = inference.severity?.toLowerCase() || 'mild';
+    
+    // Combine cognitive and visual indicators
+    const cognitiveIndicators = [
+      ...(screeningResults.cognitive?.metrics?.indicators || []),
+      ...(screeningResults.visual?.metrics?.indicators || [])
+    ];
+    
+    // Extract strengths and challenges from LLM report or fallback
+    const strengths = llmReport.strengths || screeningResults.report?.strengths || ['Willingness to use tools', 'Clear self-awareness'];
+    const challenges = llmReport.challenges || screeningResults.report?.challenges || [];
+    
+    // Extract recommendations
+    const recommendedFeatures = [];
+    if (llmReport.recommendations) {
+      llmReport.recommendations.forEach(rec => {
+        if (rec.items) {
+          recommendedFeatures.push(...rec.items);
+        }
+      });
+    }
+    
+    // Add default recommendations if none
+    if (recommendedFeatures.length === 0) {
+      recommendedFeatures.push('Personalized assistant settings');
+    }
+    
+    // Extract raw scores for display
+    const reading = results.reading || {};
+    const spelling = results.spelling || {};
+    const visual = results.visual || {};
+    const cognitive = results.cognitive || {};
+    
+    return {
+      dyslexiaTypes,
+      cognitiveIndicators: [...new Set(cognitiveIndicators)],
+      level,
+      strengths: [...new Set(strengths)],
+      challenges: challenges.length ? [...new Set(challenges)] : ['Reading fluency', 'Spelling consistency'],
+      recommendedFeatures: [...new Set(recommendedFeatures)],
+      completed: true,
+      // Enhanced data from screening engine
+      _screeningData: screeningResults,
+      _llmReport: llmReport,
+      // Attach raw scores for Report page display
+      _scores: {
+        readingAccuracy: reading.accuracyPercent ?? 0,
+        spellingAccuracy: spelling.accuracyPercent ?? 0,
+        visualAccuracy: visual.accuracy ?? 0,
+        cognitiveAccuracy: cognitive.accuracy ?? 0,
+        readingWpm: reading.wpm,
+        visualTime: visual.timeElapsed,
+      },
+    };
+  } catch (error) {
+    console.error('Holistic screening failed, using fallback:', error);
+    // Fallback to basic analysis if screening engine fails
+    return computeReportFromResultsFallback(results);
+  }
+}
+
+/**
+ * Fallback diagnosis algorithm (rule-based)
+ * Used when holistic screening engine is unavailable
+ */
+function computeReportFromResultsFallback(results) {
   const reading = results.reading || {};
   const spelling = results.spelling || {};
   const visual = results.visual || {};
@@ -16,7 +94,6 @@ export function computeReportFromResults(results) {
   const readingAccuracy = reading.accuracyPercent ?? 0;
   const spellingAccuracy = spelling.accuracyPercent ?? 0;
   const visualAccuracy = visual.accuracy ?? 0;
-  const visualSpeed = visual.timeElapsed != null ? 1 / (visual.timeElapsed / 60 || 0.1) : 0; // rough "speed" inverse of time
   const cognitiveAccuracy = cognitive.accuracy ?? 0;
 
   const dyslexiaTypes = [];
@@ -32,9 +109,9 @@ export function computeReportFromResults(results) {
     recommendedFeatures.push('Bionic Reading', 'Text-to-speech', 'Phonetic spelling support');
   }
 
-  // Visual / Surface Dyslexia: Low visual processing speed or low visual discrimination
+  // Visual / Surface Dyslexia
   const lowVisualAccuracy = visualAccuracy < 60;
-  const lowVisualSpeed = visual.timeElapsed != null && visual.timeElapsed > 90; // slow > 90s
+  const lowVisualSpeed = visual.timeElapsed != null && visual.timeElapsed > 90;
   if (lowVisualAccuracy || lowVisualSpeed) {
     if (!dyslexiaTypes.includes('Surface')) dyslexiaTypes.push('Surface');
     if (lowVisualAccuracy) cognitiveIndicators.push('Visual stress');
@@ -42,7 +119,7 @@ export function computeReportFromResults(results) {
     recommendedFeatures.push('Dyslexia-friendly font', 'Letter and line spacing', 'Focus line highlighting', 'Color & contrast');
   }
 
-  // Working Memory Deficit: Low cognitive test score
+  // Working Memory Deficit
   if (cognitiveAccuracy < 60) {
     cognitiveIndicators.push('Working memory difficulty');
     challenges.push('Sequential recall', 'Multi-step tasks');
@@ -51,8 +128,7 @@ export function computeReportFromResults(results) {
 
   // Mixed if multiple types
   if (dyslexiaTypes.length >= 2) {
-    const mixed = ['Mixed'];
-    dyslexiaTypes.splice(0, dyslexiaTypes.length, ...mixed);
+    dyslexiaTypes.splice(0, dyslexiaTypes.length, 'Mixed');
   }
 
   // Default type if none identified
@@ -62,14 +138,14 @@ export function computeReportFromResults(results) {
   }
   if (dyslexiaTypes.length === 0) dyslexiaTypes.push('None identified');
 
-  // Severity: weighted average → Mild, Moderate, Severe
+  // Severity
   const weights = { reading: 0.3, spelling: 0.3, visual: 0.2, cognitive: 0.2 };
   const weighted =
     (readingAccuracy / 100) * weights.reading +
     (spellingAccuracy / 100) * weights.spelling +
     (visualAccuracy / 100) * weights.visual +
     (cognitiveAccuracy / 100) * weights.cognitive;
-  const deficit = 1 - weighted; // higher deficit = more severe
+  const deficit = 1 - weighted;
   let level = 'mild';
   if (deficit >= 0.5) level = 'severe';
   else if (deficit >= 0.3) level = 'moderate';
@@ -82,17 +158,15 @@ export function computeReportFromResults(results) {
   if (strengths.length === 0) strengths.push('Willingness to use tools', 'Clear self-awareness');
 
   recommendedFeatures.push('Personalized assistant settings');
-  const uniqueFeatures = [...new Set(recommendedFeatures)];
 
   return {
     dyslexiaTypes,
     cognitiveIndicators,
     level,
-    strengths,
-    challenges: challenges.length ? challenges : ['Reading fluency', 'Spelling consistency'],
-    recommendedFeatures: uniqueFeatures,
+    strengths: [...new Set(strengths)],
+    challenges: challenges.length ? [...new Set(challenges)] : ['Reading fluency', 'Spelling consistency'],
+    recommendedFeatures: [...new Set(recommendedFeatures)],
     completed: true,
-    // Attach raw scores for Report page display
     _scores: {
       readingAccuracy,
       spellingAccuracy,

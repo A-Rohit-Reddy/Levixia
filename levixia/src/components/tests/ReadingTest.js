@@ -1,124 +1,154 @@
 import React, { useState, useEffect, useRef } from 'react';
-
-// ----------------------------------------------------------------------
-// MOCK AI SERVICE (Replace with real API)
-// ----------------------------------------------------------------------
-const AIService = {
-  // 1. Generate a unique story based on user age/level
-  fetchReadingPassage: async () => {
-    // Prompt: "Generate a 3-sentence story for a 10-year-old. Include words with 'th' and 'sh' sounds."
-    return new Promise(resolve => setTimeout(() => resolve({
-      text: "The giant ship sailed across the shiny ocean. Three distinct thoughts came to the captain's mind. 'We must share our treasure with the shore,' he shouted.",
-      difficulty: "Medium"
-    }), 1500));
-  },
-
-  // 2. Analyze the recording transcript using NLP
-  analyzeReading: async (original, transcript, time) => {
-    // Prompt: "Compare these two texts. Calculate WPM. Identify if errors are phonological (sound-based) or visual (skipping lines)."
-    console.log("Analyzing:", transcript);
-    return new Promise(resolve => setTimeout(() => resolve({
-      accuracy: 88,
-      wpm: 110,
-      feedback: "User struggles with 'sh' blends (ship/sip), indicating phonological processing issues.",
-      errorType: "Phonological"
-    }), 2000));
-  }
-};
+import { useUser } from '../../context/UserContext';
+import apiService from '../../services/apiService';
 
 export default function ReadingTest({ onComplete }) {
-  const [status, setStatus] = useState('loading'); // loading, ready, recording, analyzing
+  const [status, setStatus] = useState('loading');
   const [passage, setPassage] = useState('');
-  
   const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  const [finalTranscript, setFinalTranscript] = useState('');
   const [timeElapsed, setTimeElapsed] = useState(0);
-  
+
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const bufferRef = useRef('');
 
-  // --- Step 1: Get Content from AI ---
+  const { profile } = useUser();
+
   useEffect(() => {
-    AIService.fetchReadingPassage().then(data => {
-      setPassage(data.text);
+    (async () => {
+      try {
+        const data = await apiService.generateReadingPassage(profile);
+        setPassage(data.text);
+      } catch (error) {
+        console.error('Failed to generate passage:', error);
+        // Fallback passage
+        setPassage(
+          "The ship sailed across the ocean. The captain shared the treasure."
+        );
+      }
       setStatus('ready');
-    });
-  }, []);
+    })();
+  }, [profile]);
 
   const startRecording = () => {
-    setTranscript('');
+    bufferRef.current = '';
+    setFinalTranscript('');
     setTimeElapsed(0);
     setStatus('recording');
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Browser not supported");
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert('Speech recognition not supported');
+      return;
+    }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.interimResults = false;
     recognition.lang = 'en-US';
 
-    recognition.onresult = (event) => {
-      let final = '';
-      for (let i = 0; i < event.results.length; i++) {
-        final += event.results[i][0].transcript + ' ';
-      }
-      setTranscript(final);
+    recognition.onresult = (e) => {
+      bufferRef.current +=
+        e.results[e.results.length - 1][0].transcript + ' ';
     };
 
     recognition.start();
     recognitionRef.current = recognition;
     setIsRecording(true);
 
-    timerRef.current = setInterval(() => {
-      setTimeElapsed(prev => prev + 1);
-    }, 1000);
+    timerRef.current = setInterval(
+      () => setTimeElapsed(t => t + 1),
+      1000
+    );
   };
 
   const stopAndGrade = async () => {
-    if (recognitionRef.current) recognitionRef.current.stop();
+    recognitionRef.current?.stop();
     clearInterval(timerRef.current);
     setIsRecording(false);
     setStatus('analyzing');
 
-    // --- Step 2: Send to AI for NLP Grading ---
+    const transcript = bufferRef.current.trim();
+    setFinalTranscript(transcript);
+
     try {
-      const report = await AIService.analyzeReading(passage, transcript, timeElapsed);
-      
+      // Call backend AI analysis
+      const report = await apiService.analyzeReading(
+        passage,
+        transcript,
+        timeElapsed
+      );
+
       onComplete({
         type: 'reading',
-        accuracyPercent: report.accuracy,
+        accuracyPercent: report.accuracyPercent,
         wpm: report.wpm,
-        aiDiagnosis: report.feedback, // The "Perfect Data"
-        rawTranscript: transcript
+        errorType: report.errorType,
+        errorPatterns: report.errorPatterns || [],
+        phonologicalIssues: report.phonologicalIssues || [],
+        visualIssues: report.visualIssues || [],
+        strengths: report.strengths || [],
+        dyslexiaLikelihood: report.dyslexiaLikelihood,
+        feedback: report.feedback,
+        rawTranscript: transcript,
+        timeElapsed,
+        totalWords: passage.split(/\s+/).length
       });
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error('Reading analysis failed:', error);
+      // Fallback - basic calculation only
+      const totalWords = passage.split(/\s+/).length;
+      const spokenWords = transcript.split(/\s+/).length;
+      const wpm = timeElapsed > 0 ? Math.round((spokenWords / timeElapsed) * 60) : 0;
+      
+      // Simple word-level accuracy
+      const originalWords = passage.toLowerCase().split(/\s+/);
+      const transcriptWords = transcript.toLowerCase().split(/\s+/);
+      let matches = 0;
+      for (let i = 0; i < Math.min(originalWords.length, transcriptWords.length); i++) {
+        if (originalWords[i] === transcriptWords[i]) matches++;
+      }
+      const accuracy = Math.round((matches / originalWords.length) * 100);
+
+      onComplete({
+        type: 'reading',
+        accuracyPercent: accuracy,
+        wpm,
+        errorType: 'Unclassified',
+        errorPatterns: [],
+        phonologicalIssues: [],
+        visualIssues: [],
+        strengths: ['Completed reading'],
+        dyslexiaLikelihood: accuracy < 70 ? 'High' : 'Low',
+        feedback: 'AI unavailable – fallback used',
+        rawTranscript: transcript,
+        timeElapsed,
+        totalWords,
+        aiError: true
+      });
     }
   };
 
-  if (status === 'loading') return <div className="assessment-card"><h2>🤖 AI is writing a story for you...</h2></div>;
-  if (status === 'analyzing') return <div className="assessment-card"><h2>🧠 AI is listening to your reading...</h2></div>;
+  if (status === 'loading')
+    return <div className="assessment-card"><h2>📖 Reading Assessment</h2><p>AI is generating a passage for you...</p></div>;
+
+  if (status === 'analyzing')
+    return <div className="assessment-card"><h2>📖 Reading Assessment</h2><p>AI is analyzing your reading performance...</p><div style={{ textAlign: 'center', marginTop: '2rem' }}><div className="spinner" /></div></div>;
 
   return (
     <div className="assessment-card">
       <h2>📖 Reading Assessment</h2>
-      <p>Read the story below aloud.</p>
-      
-      <div className="reading-passage" style={{ fontSize: '1.2rem', lineHeight: '1.6', margin: '2rem 0', padding: '1.5rem', background: '#f5f5f5', borderRadius: '8px' }}>
-        {passage}
-      </div>
 
-      <div className="voice-recorder">
-        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>
-          {isRecording ? `🔴 ${timeElapsed}s` : 'Ready'}
-        </div>
-        
-        <button 
-          className={`record-button ${isRecording ? 'recording' : ''}`}
-          onClick={isRecording ? stopAndGrade : startRecording}
-        >
-          {isRecording ? 'Stop & Grade' : 'Start Recording'}
+      <div className="reading-passage">{passage}</div>
+
+      <div style={{ marginTop: '2rem' }}>
+        <div>{isRecording ? `🔴 ${timeElapsed}s` : 'Ready'}</div>
+
+        <button onClick={isRecording ? stopAndGrade : startRecording}>
+          {isRecording ? 'Stop & Analyze' : 'Start Reading'}
         </button>
       </div>
     </div>

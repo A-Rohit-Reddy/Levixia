@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
+import apiService from '../../services/apiService';
 
 const MIN_LENGTH = 4;
 const MAX_LENGTH = 8;
@@ -14,68 +15,179 @@ export default function CognitiveTest({ onComplete }) {
   const [sequence, setSequence] = useState([]);
   const [userSequence, setUserSequence] = useState([]);
   const [roundCorrect, setRoundCorrect] = useState(null);
-  const [startTime] = useState(() => Date.now());
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const displaySequence = useMemo(() => generateSequence(sequenceLength), [sequenceLength]);
+  const [testStartTime] = useState(Date.now());
+  const [recallStartTime, setRecallStartTime] = useState(null);
+  const [responseTimes, setResponseTimes] = useState([]);
+  const [rounds, setRounds] = useState([]);
 
+  /* Generate sequence ONCE per round */
   useEffect(() => {
-    setSequence(displaySequence);
-    setPhase('show');
+    const newSequence = generateSequence(sequenceLength);
+    setSequence(newSequence);
     setUserSequence([]);
     setRoundCorrect(null);
-    const timer = setTimeout(() => setPhase('recall'), SHOW_DURATION_MS);
+    setPhase('show');
+
+    const timer = setTimeout(() => {
+      setPhase('recall');
+      setRecallStartTime(Date.now());
+    }, SHOW_DURATION_MS);
+
     return () => clearTimeout(timer);
-  }, [sequenceLength, displaySequence]);
+  }, [sequenceLength]);
 
   const handleNumberClick = (num) => {
     if (phase !== 'recall') return;
+
+    const now = Date.now();
+    if (recallStartTime) {
+      const delta =
+        userSequence.length === 0
+          ? (now - recallStartTime) / 1000
+          : (now - recallStartTime) / 1000 -
+            responseTimes.reduce((a, b) => a + b, 0);
+
+      setResponseTimes((prev) => [...prev, Math.max(0, delta)]);
+    }
+
     setUserSequence((prev) => [...prev, num]);
   };
 
-  const checkAndAdvance = () => {
-    const correct =
-      sequence.length === userSequence.length &&
-      sequence.every((n, i) => n === userSequence[i]);
+  const evaluateRound = () => {
+    const correctCount = sequence.filter(
+      (n, i) => n === userSequence[i]
+    ).length;
 
-    if (correct && sequenceLength < MAX_LENGTH) {
+    const isPerfect = correctCount === sequence.length;
+
+    const roundData = {
+      sequenceLength,
+      correct: isPerfect,
+      correctCount,
+      sequence: [...sequence],
+      userSequence: [...userSequence],
+      responseTimes: [...responseTimes]
+    };
+
+    setRounds((prev) => [...prev, roundData]);
+
+    return { isPerfect, correctCount, roundData };
+  };
+
+  const advanceOrFinish = async () => {
+    const { isPerfect, correctCount, roundData } = evaluateRound();
+
+    if (isPerfect && sequenceLength < MAX_LENGTH) {
       setRoundCorrect(true);
       setSequenceLength((l) => l + 1);
+      setResponseTimes([]);
+      setRecallStartTime(null);
     } else {
-      const finalCorrect = correct
-        ? sequence.length
-        : sequence.filter((n, i) => n === userSequence[i]).length;
-      const timeElapsed = (Date.now() - startTime) / 1000;
-      const accuracy = sequence.length > 0
-        ? Math.round((finalCorrect / sequence.length) * 100)
-        : 0;
-      onComplete({
-        type: 'cognitive',
-        correct: finalCorrect,
-        total: sequence.length,
-        timeElapsed: Math.round(timeElapsed * 10) / 10,
-        accuracy,
-        maxLengthReached: sequenceLength,
-      });
+      // Test complete - send raw data to backend for AI analysis
+      const allRounds = rounds.concat(roundData);
+      const allResponseTimes = allRounds.flatMap((r) => r.responseTimes);
+      const timeElapsed = Math.round(((Date.now() - testStartTime) / 1000) * 10) / 10;
+
+      const totalCorrect = allRounds.reduce((sum, r) => sum + r.correctCount, 0);
+      const totalAttempts = allRounds.reduce((sum, r) => sum + r.sequenceLength, 0);
+      const accuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+      const maxLengthReached = Math.max(
+        ...allRounds.filter(r => r.correct).map(r => r.sequenceLength),
+        MIN_LENGTH
+      );
+
+      // Prepare raw data for backend
+      const rawData = {
+        sequence: sequence,
+        userSequence: userSequence,
+        responseTimes: allResponseTimes,
+        maxLengthReached,
+        rounds: allRounds,
+        timeElapsed,
+        correct: totalCorrect,
+        total: totalAttempts
+      };
+
+      setIsAnalyzing(true);
+
+      try {
+        // Call backend AI analysis
+        const analysis = await apiService.analyzeCognitive(rawData);
+
+        // Combine raw data with AI analysis
+        onComplete({
+          type: 'cognitive',
+          // Raw data
+          correct: totalCorrect,
+          total: totalAttempts,
+          accuracy,
+          timeElapsed,
+          maxLengthReached,
+          sequence: sequence,
+          userSequence: userSequence,
+          responseTimes: allResponseTimes,
+          rounds: allRounds,
+          // AI analysis results
+          workingMemoryScore: analysis.workingMemoryScore,
+          attentionScore: analysis.attentionScore,
+          taskSwitchingScore: analysis.taskSwitchingScore,
+          cognitiveLoadScore: analysis.cognitiveLoadScore,
+          executiveFunctionScore: analysis.executiveFunctionScore,
+          errorPatterns: analysis.errorPatterns,
+          indicators: analysis.indicators
+        });
+      } catch (error) {
+        console.error('Cognitive analysis failed:', error);
+        // Fallback - send raw data without AI analysis
+        onComplete({
+          type: 'cognitive',
+          correct: totalCorrect,
+          total: totalAttempts,
+          accuracy,
+          timeElapsed,
+          maxLengthReached,
+          sequence: sequence,
+          userSequence: userSequence,
+          responseTimes: allResponseTimes,
+          rounds: allRounds,
+          aiError: true,
+          errorMessage: 'AI unavailable – fallback used'
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
     }
   };
 
   const handleSubmit = () => {
     if (phase !== 'recall' || userSequence.length === 0) return;
-    checkAndAdvance();
+    advanceOrFinish();
   };
+
+  /* ---------- UI unchanged ---------- */
+
+  if (isAnalyzing) {
+    return (
+      <div className="assessment-card">
+        <h2>🧠 Cognitive & Memory Test</h2>
+        <p>AI is analyzing your performance...</p>
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <div className="spinner" />
+        </div>
+      </div>
+    );
+  }
 
   if (phase === 'show') {
     return (
       <div className="assessment-card">
         <h2>🧠 Cognitive & Memory Test</h2>
-        <p>
-          Memorize this sequence of numbers. It will disappear in {SHOW_DURATION_MS / 1000} seconds.
-        </p>
+        <p>Memorize this sequence.</p>
         <div className="memory-sequence">
-          {sequence.map((num, index) => (
-            <div key={`${index}-${num}`} className="memory-item">
-              {num}
-            </div>
+          {sequence.map((num, i) => (
+            <div key={i} className="memory-item">{num}</div>
           ))}
         </div>
       </div>
@@ -85,36 +197,21 @@ export default function CognitiveTest({ onComplete }) {
   return (
     <div className="assessment-card">
       <h2>🧠 Cognitive & Memory Test</h2>
-      <p>
-        Click the numbers below in the order you remember them. Get it right to try a longer sequence.
-      </p>
 
       {roundCorrect && (
-        <p style={{ color: 'var(--levixia-success)', fontWeight: '600', marginBottom: '1rem' }}>
-          ✓ Correct! Next round has one more number.
+        <p style={{ color: 'green', fontWeight: 600 }}>
+          ✓ Correct! Increasing difficulty.
         </p>
       )}
 
-      <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <p style={{ color: 'var(--levixia-cyan)', fontWeight: '600', fontSize: '1.2rem' }}>
-          Your sequence: {userSequence.join(' – ') || 'Click numbers below...'}
-        </p>
-      </div>
+      <p>Your sequence: {userSequence.join(' – ') || '...'}</p>
 
       <div className="visual-test-grid">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+        {[1,2,3,4,5,6,7,8,9].map(num => (
           <div
             key={num}
-            role="button"
-            tabIndex={0}
             className="visual-card"
             onClick={() => handleNumberClick(num)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleNumberClick(num);
-              }
-            }}
           >
             {num}
           </div>
@@ -122,21 +219,8 @@ export default function CognitiveTest({ onComplete }) {
       </div>
 
       <div className="button-group">
-        <button
-          type="button"
-          className="secondary-btn"
-          onClick={() => setUserSequence([])}
-        >
-          Clear
-        </button>
-        <button
-          type="button"
-          className="primary-btn"
-          onClick={handleSubmit}
-          disabled={userSequence.length === 0}
-        >
-          Complete Memory Test
-        </button>
+        <button onClick={() => setUserSequence([])}>Clear</button>
+        <button onClick={handleSubmit}>Submit</button>
       </div>
     </div>
   );

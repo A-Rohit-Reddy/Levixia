@@ -23,6 +23,12 @@ export default function Report() {
   const features = report.recommendedFeatures || [];
   const scores = report._scores || null;
   const hasReport = report?.completed;
+  
+  // Extract LLM-generated content if available
+  const llmReport = report._llmReport || null;
+  const executiveSummary = llmReport?.executiveSummary;
+  const personalizedFeedback = llmReport?.personalizedFeedback;
+  const perTestBreakdown = llmReport?.perTestBreakdown;
 
   if (!hasReport) {
     return (
@@ -48,6 +54,33 @@ export default function Report() {
           <p className="report-intro">
             This report is based on your assessment. It helps us suggest the best settings for your assistant. It is not a medical diagnosis.
           </p>
+
+          {executiveSummary && (
+            <section className="report-section">
+              <h2>Executive Summary</h2>
+              <p className="report-desc" style={{ fontSize: '1.1rem', lineHeight: '1.6' }}>
+                {executiveSummary}
+              </p>
+            </section>
+          )}
+
+          {perTestBreakdown && (
+            <section className="report-section">
+              <h2>Test Breakdown</h2>
+              {perTestBreakdown.cognitive && (
+                <p className="report-desc"><strong>Cognitive:</strong> {perTestBreakdown.cognitive}</p>
+              )}
+              {perTestBreakdown.visual && (
+                <p className="report-desc"><strong>Visual:</strong> {perTestBreakdown.visual}</p>
+              )}
+              {perTestBreakdown.reading && (
+                <p className="report-desc"><strong>Reading:</strong> {perTestBreakdown.reading}</p>
+              )}
+              {perTestBreakdown.spelling && (
+                <p className="report-desc"><strong>Spelling:</strong> {perTestBreakdown.spelling}</p>
+              )}
+            </section>
+          )}
 
           {scores && (
             <section className="report-section report-scores">
@@ -136,6 +169,15 @@ export default function Report() {
               ))}
             </ul>
           </section>
+
+          {personalizedFeedback && (
+            <section className="report-section">
+              <h2>Personalized Feedback</h2>
+              <p className="report-desc" style={{ fontSize: '1.05rem', lineHeight: '1.6', fontStyle: 'italic' }}>
+                {personalizedFeedback}
+              </p>
+            </section>
+          )}
 
           <div className="report-actions">
             <Link to="/assistant-config" className="btn btn-primary btn-lg">
