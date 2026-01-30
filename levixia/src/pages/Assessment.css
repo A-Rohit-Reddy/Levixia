@@ -1,0 +1,70 @@
+.assessment-page {
+  max-width: 620px;
+  margin: 2rem auto;
+}
+
+.assessment-page .steps {
+  margin-bottom: 1rem;
+}
+
+.assessment-sub {
+  color: var(--levixia-text-muted);
+  margin-top: -0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.question-block {
+  margin-bottom: 1.5rem;
+}
+
+.question-block > label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.option-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 2px solid var(--levixia-border);
+  background: var(--levixia-surface);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.option-label:hover {
+  border-color: var(--levixia-primary-light);
+}
+
+.option-label input {
+  margin: 0;
+}
+
+.option-label input:checked + span {
+  font-weight: 600;
+}
+
+.option-label:has(input:checked) {
+  border-color: var(--levixia-primary);
+  background: rgba(26, 95, 74, 0.08);
+}
+
+.assessment-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.assessment-actions .btn-primary {
+  margin-left: auto;
+}

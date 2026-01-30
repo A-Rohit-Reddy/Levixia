@@ -1,0 +1,40 @@
+.screening-page {
+  max-width: 600px;
+  margin: 2rem auto;
+}
+
+.screening-card h1 {
+  font-size: 1.5rem;
+}
+
+.screening-desc {
+  color: var(--levixia-text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.screening-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.screening-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--levixia-border);
+}
+
+.screening-list li:last-child {
+  border-bottom: none;
+}
+
+.screening-list strong {
+  color: var(--levixia-primary-dark);
+  display: inline-block;
+  min-width: 100px;
+}
+
+.screening-note {
+  font-size: 0.95rem;
+  color: var(--levixia-text-muted);
+  margin-bottom: 1.5rem;
+}

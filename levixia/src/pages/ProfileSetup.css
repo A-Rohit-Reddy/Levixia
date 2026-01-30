@@ -1,0 +1,13 @@
+.profile-setup-page {
+  max-width: 480px;
+  margin: 2rem auto;
+}
+
+.profile-intro {
+  color: var(--levixia-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.profile-setup-page .btn {
+  margin-top: 0.5rem;
+}
