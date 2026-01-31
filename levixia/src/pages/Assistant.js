@@ -6,17 +6,34 @@ import apiService from '../services/apiService';
 import { FaPlay, FaPause, FaStop, FaFont, FaTextHeight, FaEye } from 'react-icons/fa'; // Assuming you have react-icons
 import './Assistant.css';
 
-const TASK_OPTIONS = [
+// Default task options - will be filtered based on user profile
+const ALL_TASK_OPTIONS = [
   { value: 'reading', label: 'Reading Assistant' },
   { value: 'writing', label: 'Writing & Analysis' },
 ];
 
 export default function Assistant() {
-  const { assessmentResults, report, addProgressSession, userLearningProfile, saveLearningProfile } = useUser();
+  const { assessmentResults, report, addProgressSession, userLearningProfile, saveLearningProfile, updateLearningProfile } = useUser();
   
   // -- State: Core --
   const [userProfile, setUserProfile] = useState(userLearningProfile);
-  const [taskMode, setTaskMode] = useState('reading');
+  
+  // Determine available task options based on user profile
+  const availableTaskOptions = React.useMemo(() => {
+    // If reading assistant is not needed (threshold reached in normal font range), hide it
+    if (userLearningProfile?.readingAssistantNeeded === false) {
+      return ALL_TASK_OPTIONS.filter(opt => opt.value === 'writing');
+    }
+    return ALL_TASK_OPTIONS;
+  }, [userLearningProfile]);
+
+  // Set initial task mode based on available options
+  const [taskMode, setTaskMode] = useState(() => {
+    if (userLearningProfile?.readingAssistantNeeded === false) {
+      return 'writing';
+    }
+    return 'reading';
+  });
   const [inputMode, setInputMode] = useState('paste');
   const [sourceText, setSourceText] = useState('');
   
@@ -55,6 +72,16 @@ export default function Assistant() {
       applySeveritySettings(report);
     }
   }, [assessmentResults, report, userProfile]);
+
+  // Apply optimal font size from user profile
+  useEffect(() => {
+    if (userLearningProfile?.optimalFontSize) {
+      setReaderSettings(prev => ({
+        ...prev,
+        size: userLearningProfile.optimalFontSize
+      }));
+    }
+  }, [userLearningProfile?.optimalFontSize]);
 
   const loadUserProfile = async () => {
     try {
@@ -210,17 +237,33 @@ export default function Assistant() {
         </header>
 
         {/* Task Toggle */}
-        <div className="task-selector">
-          {TASK_OPTIONS.map((opt) => (
-            <button 
-              key={opt.value}
-              className={`task-btn ${taskMode === opt.value ? 'active' : ''}`}
-              onClick={() => setTaskMode(opt.value)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {availableTaskOptions.length > 1 && (
+          <div className="task-selector">
+            {availableTaskOptions.map((opt) => (
+              <button 
+                key={opt.value}
+                className={`task-btn ${taskMode === opt.value ? 'active' : ''}`}
+                onClick={() => setTaskMode(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        
+        {/* Show message if reading assistant is not needed */}
+        {userLearningProfile?.readingAssistantNeeded === false && (
+          <div className="info-banner" style={{ 
+            padding: '12px', 
+            backgroundColor: '#e3f2fd', 
+            borderRadius: '8px', 
+            marginBottom: '20px',
+            color: '#1976d2'
+          }}>
+            ℹ️ Based on your reading assessment, you've achieved optimal reading accuracy with standard font sizes. 
+            The Writing Assistant is now your primary focus.
+          </div>
+        )}
 
         <div className="main-workspace card">
           

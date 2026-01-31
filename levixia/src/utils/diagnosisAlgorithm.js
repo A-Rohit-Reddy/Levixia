@@ -77,6 +77,9 @@ export async function computeReportFromResults(results) {
         cognitiveAccuracy: cognitive.accuracy ?? 0,
         readingWpm: reading.wpm,
         visualTime: visual.timeElapsed,
+        // Font size optimization data
+        optimalFontSize: reading.optimalFontSize,
+        fontSizeOptimization: reading.fontSizeOptimization,
       },
     };
   } catch (error) {

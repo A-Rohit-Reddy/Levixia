@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { UserProvider } from './context/UserContext';
 import { AssessmentProvider } from './context/AssessmentContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import GlobalFontSize from './components/GlobalFontSize';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -20,6 +21,7 @@ function App() {
   return (
     <AuthProvider>
       <UserProvider>
+        <GlobalFontSize />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Landing />} />

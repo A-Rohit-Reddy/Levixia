@@ -119,6 +119,11 @@ export default function Report() {
                   <div className="result-score">{scores.readingAccuracy ?? '—'}%</div>
                   <p className="report-desc">Accuracy</p>
                   {scores.readingWpm != null && <p className="report-desc">{scores.readingWpm} WPM</p>}
+                  {scores.optimalFontSize && (
+                    <p className="report-desc" style={{ color: '#00d4ff', fontWeight: 'bold', marginTop: '8px' }}>
+                      Optimal Font Size: {scores.optimalFontSize}px
+                    </p>
+                  )}
                 </div>
                 <div className="result-card">
                   <h3>✍️ Spelling</h3>
@@ -137,6 +142,22 @@ export default function Report() {
                   <p className="report-desc">Recall accuracy</p>
                 </div>
               </div>
+              
+              {/* Font Size Optimization Details */}
+              {scores.fontSizeOptimization && (
+                <div className="report-section" style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f0f9ff', borderRadius: '8px' }}>
+                  <h3 style={{ marginTop: 0 }}>📏 Font Size Optimization</h3>
+                  <p className="report-desc">
+                    <strong>Initial Font Size:</strong> {scores.fontSizeOptimization.initialFontSize}px<br/>
+                    <strong>Optimal Font Size:</strong> {scores.fontSizeOptimization.optimalFontSize}px<br/>
+                    <strong>Reading Attempts:</strong> {scores.fontSizeOptimization.attempts}<br/>
+                    <strong>Accuracy Achieved:</strong> {scores.fontSizeOptimization.accuracyAchieved ? '✅ Yes (≥70%)' : '❌ No'}
+                  </p>
+                  <p className="report-desc" style={{ marginTop: '10px', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                    This optimal font size will be automatically applied in your personalized assistant for the best reading experience.
+                  </p>
+                </div>
+              )}
             </section>
           )}
 
