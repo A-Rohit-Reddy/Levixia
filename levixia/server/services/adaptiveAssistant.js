@@ -1,17 +1,41 @@
 /**
  * Adaptive Assistant Orchestrator
  * Core brain that decides which features to activate and how to process content
+ * Only activates features that correspond to defects detected in the screening test
  */
 
 const geminiService = require('./geminiService');
 const contextDetector = require('./contextDetector');
 
+// Map recommended feature display names to profile feature keys (defect-based only)
+const RECOMMENDED_TO_FEATURE = {
+  'Bionic Reading': 'bionicReading', 'bionic reading': 'bionicReading',
+  'Dyslexia-friendly font': 'dyslexiaFont', 'dyslexia-friendly font': 'dyslexiaFont',
+  'Letter and line spacing': 'smartSpacing', 'Letter spacing': 'smartSpacing',
+  'Color & contrast': 'smartSpacing', 'Color contrast': 'smartSpacing',
+  'Text-to-speech': 'tts', 'text-to-speech': 'tts', 'Phonetic support': 'tts',
+  'Writing support': 'writingSupport', 'Writing support rules': 'writingSupport',
+  'Spelling suggestions': 'writingSupport', 'Phonetic spelling support': 'writingSupport',
+  'Cognitive load reduction': 'cognitiveLoadReduction', 'Chunked text': 'cognitiveLoadReduction',
+  'Focus line highlighting': 'focusMode', 'Focus line': 'focusMode',
+};
+
+function getDefectBasedFeatures(detectedDefects) {
+  if (!detectedDefects || !detectedDefects.recommendedFeatures) return null;
+  const allowed = new Set();
+  for (const rec of detectedDefects.recommendedFeatures) {
+    const key = RECOMMENDED_TO_FEATURE[rec] || RECOMMENDED_TO_FEATURE[(rec || '').toLowerCase()];
+    if (key) allowed.add(key);
+  }
+  return allowed.size ? allowed : null;
+}
+
 class AdaptiveAssistant {
   /**
-   * Generate adaptive configuration for user
+   * Generate adaptive configuration for user (defect-based only: only features from screening report)
    * @param {Object} userProfile - User learning profile
    * @param {Object} context - Detected context
-   * @param {Object} input - User input data
+   * @param {Object} input - User input data (may include detectedDefects: { challenges, recommendedFeatures })
    * @returns {Promise<Object>} - Assistant configuration
    */
   async generateConfig(userProfile, context, input) {
@@ -91,23 +115,37 @@ Return JSON:
       const config = await geminiService.generateJSON('adaptive assistant configuration', prompt);
       const duration = Date.now() - startTime;
       
-      console.log(`✅ Adaptive Assistant configured in ${duration}ms`);
-      console.log(`🎯 Active Features: ${config.activeFeatures?.join(', ') || 'None'}`);
+      const defectBased = getDefectBasedFeatures(input.detectedDefects);
+      let activeFeatures = config.activeFeatures || [];
+      if (defectBased) {
+        activeFeatures = activeFeatures.filter(f => defectBased.has(f));
+      }
 
-      // Merge with user profile defaults
+      let assistantConfig = {
+        ...userProfile.enabledFeatures,
+        ...config.assistantConfig,
+        smartSpacing: config.assistantConfig?.smartSpacing || {
+          enabled: userProfile.enabledFeatures.smartSpacing,
+          letterSpacing: 1.1,
+          wordSpacing: 1.3,
+          lineSpacing: 1.6
+        }
+      };
+      if (defectBased) {
+        const restricted = {};
+        for (const key of ['bionicReading', 'dyslexiaFont', 'smartSpacing', 'tts', 'writingSupport', 'cognitiveLoadReduction', 'focusMode']) {
+          restricted[key] = defectBased.has(key) && (assistantConfig[key] !== false);
+        }
+        assistantConfig = { ...assistantConfig, ...restricted };
+      }
+
+      console.log(`✅ Adaptive Assistant configured in ${duration}ms`);
+      console.log(`🎯 Active Features (defect-based): ${activeFeatures.join(', ') || 'None'}`);
+
       return {
-        assistantConfig: {
-          ...userProfile.enabledFeatures,
-          ...config.assistantConfig,
-          smartSpacing: config.assistantConfig?.smartSpacing || {
-            enabled: userProfile.enabledFeatures.smartSpacing,
-            letterSpacing: 1.1,
-            wordSpacing: 1.3,
-            lineSpacing: 1.6
-          }
-        },
-        explanation: config.explanation || 'Configuration generated based on your learning profile',
-        activeFeatures: config.activeFeatures || [],
+        assistantConfig,
+        explanation: config.explanation || 'Configuration based on your screening results.',
+        activeFeatures,
         recommendedActions: config.recommendedActions || [],
         processingStrategy: config.processingStrategy || {
           simplify: false,
@@ -119,35 +157,45 @@ Return JSON:
       };
     } catch (error) {
       console.error('Adaptive assistant configuration failed:', error);
-      // Fallback to profile defaults
-      return this.generateFallbackConfig(userProfile, context);
+      return this.generateFallbackConfig(userProfile, context, input);
     }
   }
 
   /**
-   * Generate fallback configuration
+   * Generate fallback configuration (defect-based only when detectedDefects provided)
    */
-  generateFallbackConfig(userProfile, context) {
+  generateFallbackConfig(userProfile, context, input = {}) {
+    const defectBased = getDefectBasedFeatures(input.detectedDefects);
+    let activeFeatures = Object.keys(userProfile.enabledFeatures || {}).filter(
+      k => userProfile.enabledFeatures[k]
+    );
+    if (defectBased) {
+      activeFeatures = activeFeatures.filter(f => defectBased.has(f));
+    }
+    const assistantConfig = {
+      ...userProfile.enabledFeatures,
+      smartSpacing: {
+        enabled: userProfile.enabledFeatures?.smartSpacing,
+        letterSpacing: 1.1,
+        wordSpacing: 1.3,
+        lineSpacing: 1.6
+      }
+    };
+    if (defectBased) {
+      for (const key of ['bionicReading', 'dyslexiaFont', 'smartSpacing', 'tts', 'writingSupport', 'cognitiveLoadReduction', 'focusMode']) {
+        assistantConfig[key] = defectBased.has(key);
+      }
+    }
     return {
-      assistantConfig: {
-        ...userProfile.enabledFeatures,
-        smartSpacing: {
-          enabled: userProfile.enabledFeatures.smartSpacing,
-          letterSpacing: 1.1,
-          wordSpacing: 1.3,
-          lineSpacing: 1.6
-        }
-      },
-      explanation: 'Using your default learning profile settings',
-      activeFeatures: Object.keys(userProfile.enabledFeatures).filter(
-        k => userProfile.enabledFeatures[k]
-      ),
+      assistantConfig,
+      explanation: 'Using settings based on your screening results.',
+      activeFeatures,
       recommendedActions: [],
       processingStrategy: {
         simplify: false,
-        chunk: userProfile.enabledFeatures.cognitiveLoadReduction,
-        highlight: userProfile.readingPreferences.highlightKeywords,
-        pace: userProfile.readingPreferences.preferredPace
+        chunk: userProfile.enabledFeatures?.cognitiveLoadReduction,
+        highlight: userProfile.readingPreferences?.highlightKeywords,
+        pace: userProfile.readingPreferences?.preferredPace || 120
       },
       timestamp: new Date().toISOString()
     };

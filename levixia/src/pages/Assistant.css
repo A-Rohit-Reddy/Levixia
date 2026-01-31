@@ -1,195 +1,396 @@
-.assistant-page {
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.assistant-page h1 {
-  font-size: 1.5rem;
-  color: var(--levixia-primary-dark);
-  margin-bottom: 0.5rem;
-}
-
-.assistant-intro {
-  color: var(--levixia-text-muted);
-  margin-bottom: 1.5rem;
-}
-
-.config-explanation {
-  font-style: italic;
-  color: var(--levixia-primary);
-}
-
-.recommendations-banner {
-  background: rgba(26, 95, 74, 0.1);
-  border-left: 4px solid var(--levixia-primary);
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.5rem;
-  border-radius: 4px;
-}
-
-.processing-indicator {
-  text-align: center;
-  padding: 2rem;
-  color: var(--levixia-text-muted);
-}
-
-.processing-indicator .spinner {
-  margin: 0 auto 1rem;
-}
-
-.reading-pace-info {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--levixia-text-muted);
-}
-
-.active-features {
-  margin-top: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--levixia-text-muted);
-  padding: 0.5rem;
-  background: rgba(26, 95, 74, 0.05);
-  border-radius: 4px;
-}
-
-.assistant-card {
-  margin-bottom: 1rem;
-}
-
-.task-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.task-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  cursor: pointer;
-  padding: 0.4rem 0.75rem;
-  border: 2px solid var(--levixia-border);
-  border-radius: 8px;
-  background: var(--levixia-surface);
-}
-
-.task-option input {
-  margin: 0;
-}
-
-.task-option:has(input:checked) {
-  border-color: var(--levixia-primary);
-  background: rgba(26, 95, 74, 0.08);
-}
-
-.input-mode-tabs {
-  display: flex;
-  gap: 0.25rem;
-  margin-bottom: 0.75rem;
-}
-
-.input-mode-tabs button {
-  padding: 0.5rem 1rem;
-  border: 2px solid var(--levixia-border);
-  background: var(--levixia-surface);
-  border-radius: 8px;
-  font-weight: 500;
-}
-
-.input-mode-tabs button.active {
-  border-color: var(--levixia-primary);
-  background: var(--levixia-primary);
-  color: white;
-}
-
-.assistant-textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid var(--levixia-border);
-  border-radius: 8px;
-  font-size: 1rem;
-  line-height: 1.6;
-  resize: vertical;
-}
-
-.assistant-textarea:focus {
-  border-color: var(--levixia-primary);
-  outline: none;
-}
-
-.file-zone {
-  padding: 2rem;
-  border: 2px dashed var(--levixia-border);
-  border-radius: 8px;
-  text-align: center;
-  color: var(--levixia-text-muted);
-  cursor: pointer;
-}
-
-.file-zone:hover {
-  border-color: var(--levixia-primary-light);
-  color: var(--levixia-primary);
-}
-
-.adapted-block {
-  margin-top: 1rem;
-}
-
-.assistant-output {
-  padding: 1rem;
-  background: var(--levixia-bg);
-  border-radius: 8px;
-  border: 1px solid var(--levixia-border);
-  white-space: pre-wrap;
-  word-wrap: break-word;
-}
-
-.assistant-output b {
-  font-weight: 700;
-  color: var(--levixia-primary-dark);
-}
-
-.dyslexia-font {
-  font-family: var(--levixia-font-dyslexia);
-}
-
-.assistant-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.accuracy-block {
-  margin-top: 1rem;
-  background: rgba(45, 143, 114, 0.08);
-  border-color: var(--levixia-success);
-}
-
-.accuracy-block h3 {
-  margin-top: 0;
-  font-size: 1.1rem;
-}
-
-.accuracy-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--levixia-success);
-  margin: 0.25rem 0;
-}
-
-.accuracy-desc {
-  color: var(--levixia-text-muted);
-  font-size: 0.95rem;
-  margin-bottom: 0;
-}
-
-.assistant-hint {
-  font-size: 0.9rem;
-  color: var(--levixia-text-muted);
-}
-
-.assistant-hint a {
-  font-weight: 600;
-}
+/* =========================================
+   1. CORE LAYOUT & VARIABLES
+   ========================================= */
+   .assistant-page {
+    max-width: 800px; /* Slightly wider for the toolbar */
+    margin: 0 auto;
+    padding-bottom: 3rem;
+  }
+  
+  .assistant-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .assistant-header h1 {
+    font-size: 1.8rem;
+    color: var(--levixia-primary-dark);
+    margin-bottom: 0.5rem;
+  }
+  
+  .assistant-header p {
+    color: var(--levixia-text-muted);
+  }
+  
+  /* =========================================
+     2. CUSTOM FONTS
+     ========================================= */
+  /* Ensure you have the font file in your public/fonts folder */
+  @font-face {
+    font-family: 'OpenDyslexic';
+    /* We go up one level (..) out of 'pages', then into 'assets/fonts' */
+    src: url('../assets/fonts/open-dyslexic-20160623-Stable/otf/OpenDyslexic-Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+  }
+  
+  /* =========================================
+     3. TASK TOGGLES & INPUTS
+     ========================================= */
+  .task-selector {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .task-btn {
+    background: white;
+    border: 2px solid var(--levixia-border);
+    padding: 0.6rem 1.5rem;
+    border-radius: 2rem;
+    font-weight: 600;
+    color: var(--levixia-text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  
+  .task-btn.active {
+    border-color: var(--levixia-primary);
+    background: rgba(26, 95, 74, 0.1);
+    color: var(--levixia-primary-dark);
+  }
+  
+  .main-workspace {
+    background: #fff;
+    border: 1px solid var(--levixia-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  }
+  
+  /* Input Toolbar (Paste / Upload / Voice) */
+  .input-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 1rem;
+  }
+  
+  .input-toolbar button {
+    background: transparent;
+    border: none;
+    font-weight: 600;
+    color: var(--levixia-text-muted);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  
+  .input-toolbar button.active {
+    background: var(--levixia-primary);
+    color: white;
+  }
+  
+  .source-input {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid var(--levixia-border);
+    border-radius: 8px;
+    font-family: inherit;
+    resize: vertical;
+    margin-bottom: 1rem;
+    font-size: 1rem;
+  }
+  
+  .source-input:focus {
+    outline: none;
+    border-color: var(--levixia-primary);
+  }
+  
+  /* =========================================
+     4. READING ENGINE (NEW)
+     ========================================= */
+  .reading-engine-container {
+    animation: fadeIn 0.3s ease;
+  }
+  
+  /* The Toolbar (Gray box with controls) */
+  .reader-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+  }
+  
+  .tool-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .tool-group label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .tool-group select, 
+  .tool-group input[type="range"] {
+    padding: 0.25rem;
+    border-radius: 4px;
+    border: 1px solid #ced4da;
+    background: white;
+  }
+  
+  .tool-group.toggle {
+    flex-direction: row;
+    align-items: center;
+    height: 100%;
+    padding-top: 14px; /* Align with inputs */
+  }
+  
+  .tool-group.toggle input {
+    width: 1.2rem;
+    height: 1.2rem;
+    accent-color: var(--levixia-primary);
+  }
+  
+  /* The Main Reading Box */
+  .active-reader-box {
+    min-height: 250px;
+    padding: 2.5rem;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.3s ease;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    max-height: 60vh;
+  }
+  
+  /* Contrast Modes */
+  .contrast-default {
+    background-color: #ffffff;
+    color: #212529;
+  }
+  
+  .contrast-soft-blue {
+    background-color: #e3f2fd; /* Irlen Syndrome Blue */
+    color: #0d47a1;
+    border-color: #bbdefb;
+  }
+  
+  .contrast-sepia {
+    background-color: #fdf6e3;
+    color: #5d4037;
+    border-color: #faebcc;
+  }
+  
+  .contrast-dark {
+    background-color: #212121;
+    color: #e0e0e0;
+    border-color: #424242;
+  }
+  
+  /* Bionic Reading Styles */
+  .bionic-word b {
+    font-weight: 800;
+    color: inherit; /* Inherit from contrast mode */
+  }
+  
+  /* TTS Controls */
+  .tts-controls {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+  }
+  
+  .btn-icon {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--levixia-border);
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--levixia-primary-dark);
+  }
+  
+  .btn-icon:hover {
+    background: #f8f9fa;
+  }
+  
+  .btn-icon.warning {
+    color: #dc3545;
+    border-color: #dc3545;
+  }
+  
+  /* =========================================
+     5. WRITING & ANALYTICS (NEW)
+     ========================================= */
+  .writing-header {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .pill {
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    border: 1px solid var(--levixia-border);
+    background: transparent;
+    color: var(--levixia-text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  
+  .pill.active {
+    background: var(--levixia-primary-dark);
+    color: white;
+    border-color: var(--levixia-primary-dark);
+  }
+  
+  .user-writing-area {
+    width: 100%;
+    padding: 1rem;
+    border: 2px solid #e0e0e0; /* Thicker border for focus */
+    border-radius: 8px;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    resize: vertical;
+    margin-bottom: 1rem;
+    transition: border-color 0.2s;
+  }
+  
+  .user-writing-area:focus {
+    outline: none;
+    border-color: var(--levixia-primary);
+  }
+  
+  /* Analytics Dashboard */
+  .analytics-dashboard {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 2px dashed #eee;
+    display: grid;
+    grid-template-columns: 150px 1fr; /* Score on left, feedback on right */
+    gap: 2rem;
+  }
+  
+  .score-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .score-circle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: white;
+    border: 8px solid var(--levixia-success);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  }
+  
+  .score-circle span {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--levixia-success);
+    line-height: 1;
+  }
+  
+  .score-circle small {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: var(--levixia-text-muted);
+    margin-top: 4px;
+  }
+  
+  .feedback-section h4 {
+    margin-top: 0;
+    color: var(--levixia-primary-dark);
+  }
+  
+  .errors-list ul {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .errors-list li {
+    padding: 0.75rem;
+    background: #fff5f5;
+    border-left: 3px solid #dc3545;
+    margin-bottom: 0.5rem;
+    border-radius: 0 4px 4px 0;
+    font-size: 0.95rem;
+  }
+  
+  .err-orig {
+    text-decoration: line-through;
+    color: #999;
+  }
+  
+  .err-fix {
+    font-weight: bold;
+    color: #dc3545;
+    margin-left: 0.5rem;
+  }
+  
+  .err-reason {
+    color: #666;
+    font-style: italic;
+    font-size: 0.85rem;
+  }
+  
+  /* =========================================
+     6. VOICE & UTILITY
+     ========================================= */
+  .voice-controls {
+    text-align: center;
+    padding: 1rem;
+    background: #f0f7ff;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Mobile Responsive */
+  @media (max-width: 600px) {
+    .analytics-dashboard {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+    
+    .reader-toolbar {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }

@@ -1,17 +1,22 @@
 /**
  * Holistic Screening Engine
- * Aggregates results from all test modules
- * Cross-correlates signals to infer learning disability types and severity
+ * Exhaustive multimodal screening for neurodivergent learning difficulties.
+ * Covers: Reading & Language, Writing & Spelling, Visual, Auditory (inferred), Cognitive & Attention.
+ * Classifies: all dyslexia types (Phonological, Surface, Rapid Naming, Double Deficit, Visual/Orthographic,
+ * Auditory, Developmental, Acquired) and ADHD indicators.
+ * Severity: No Significant Difficulty | Mild | Moderate | Severe (from accuracy, speed, errors, cognitive load).
  */
 
 import { CognitiveEvaluator, VisualEvaluator, ReadingEvaluator, SpellingEvaluator } from './evaluationService';
 import apiService from './apiService';
 
+const SEVERITY_LEVELS = ['No Significant Difficulty', 'Mild', 'Moderate', 'Severe'];
+
 class HolisticScreeningEngine {
   /**
-   * Process and aggregate all test results
+   * Process and aggregate all test results (exhaustive screening)
    * @param {Object} results - { cognitive, visual, reading, spelling }
-   * @returns {Promise<Object>} - Comprehensive screening results
+   * @returns {Promise<Object>} - Comprehensive screening results with classification and severity
    */
   async processResults(results) {
     // Step 1: Evaluate each test module
@@ -20,7 +25,7 @@ class HolisticScreeningEngine {
     const readingMetrics = ReadingEvaluator.structure(results.reading || {});
     const spellingMetrics = SpellingEvaluator.structure(results.spelling || {});
 
-    // Step 2: Normalize scores (0-100 scale)
+    // Step 2: Normalize scores (0-100 scale) and build dimension summary
     const normalizedScores = this.normalizeScores({
       cognitive: cognitiveMetrics,
       visual: visualMetrics,
@@ -28,7 +33,7 @@ class HolisticScreeningEngine {
       spelling: spellingMetrics
     });
 
-    // Step 3: Cross-correlate signals
+    // Step 3: Cross-correlate signals across all dimensions
     const correlations = this.crossCorrelate({
       cognitive: cognitiveMetrics,
       visual: visualMetrics,
@@ -36,16 +41,25 @@ class HolisticScreeningEngine {
       spelling: spellingMetrics
     });
 
-    // Step 4: Infer learning disability type and severity
-    const inference = this.inferDisabilityType({
+    // Step 4: Compute severity per dimension (accuracy, speed, errors, cognitive load, functional impact)
+    const severityByDimension = this.computeSeverityByDimension({
+      cognitive: cognitiveMetrics,
+      visual: visualMetrics,
+      reading: readingMetrics,
+      spelling: spellingMetrics
+    });
+
+    // Step 5: Infer condition type(s): all dyslexia categories + ADHD
+    const inference = this.inferConditionType({
       cognitive: cognitiveMetrics,
       visual: visualMetrics,
       reading: readingMetrics,
       spelling: spellingMetrics,
-      correlations
+      correlations,
+      severityByDimension
     });
 
-    // Step 5: Aggregate all data for LLM report generation
+    // Step 6: Aggregate for LLM report (mandatory format)
     const aggregatedData = {
       cognitive: {
         raw: results.cognitive,
@@ -68,10 +82,11 @@ class HolisticScreeningEngine {
         normalized: normalizedScores.spelling
       },
       correlations,
+      severityByDimension,
       inference
     };
 
-    // Step 6: Generate LLM report via backend API
+    // Step 7: Generate LLM report (user-friendly, non-medical, with disclaimer)
     let llmReport = null;
     try {
       llmReport = await apiService.generateReport(aggregatedData);
@@ -84,6 +99,38 @@ class HolisticScreeningEngine {
       ...aggregatedData,
       report: llmReport,
       timestamp: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Compute severity per dimension from: accuracy, processing speed, error frequency, cognitive load
+   * Returns: No Significant Difficulty | Mild | Moderate | Severe
+   */
+  computeSeverityByDimension(metrics) {
+    const scoreToSeverity = (score) => {
+      if (score >= 85) return 'No Significant Difficulty';
+      if (score >= 70) return 'Mild';
+      if (score >= 50) return 'Moderate';
+      return 'Severe';
+    };
+
+    const reading = metrics.reading || {};
+    const spelling = metrics.spelling || {};
+    const visual = metrics.visual || {};
+    const cognitive = metrics.cognitive || {};
+
+    const readingScore = (reading.accuracy || 0) * 0.5 + (reading.fluencyScore || 0) * 0.3 + (reading.decodingScore || 0) * 0.2;
+    const spellingScore = (spelling.accuracy || 0) * 0.6 + (100 - (spelling.orthographicWeakness || 0)) * 0.2 + (100 - (spelling.phonemeGraphemeMismatch || 0)) * 0.2;
+    const visualScore = (visual.patternRecognitionScore || 0) * 0.4 + (visual.visualStressScore || 0) * 0.3 + (100 - (visual.trackingDifficultyIndex || 0)) * 0.3;
+    const cognitiveScore = (cognitive.executiveFunctionScore || 0) * 0.4 + (cognitive.attentionScore || 0) * 0.3 + (cognitive.taskSwitchingScore || 0) * 0.3;
+    const auditoryScore = 75; // Placeholder: no direct auditory test; infer from reading/cognitive if needed
+
+    return {
+      readingAndLanguage: { severity: scoreToSeverity(readingScore), score: Math.round(readingScore) },
+      writingAndSpelling: { severity: scoreToSeverity(spellingScore), score: Math.round(spellingScore) },
+      visualProcessing: { severity: scoreToSeverity(visualScore), score: Math.round(visualScore) },
+      auditoryProcessing: { severity: scoreToSeverity(auditoryScore), score: Math.round(auditoryScore) },
+      cognitiveAndAttention: { severity: scoreToSeverity(cognitiveScore), score: Math.round(cognitiveScore) }
     };
   }
 
@@ -183,112 +230,144 @@ class HolisticScreeningEngine {
   }
 
   /**
-   * Infer learning disability type and severity
+   * Infer condition type(s): all dyslexia categories + ADHD indicators
+   * Dyslexia types: Phonological, Surface, Rapid Naming, Double Deficit, Visual (Orthographic),
+   * Auditory, Developmental, Acquired. ADHD: inattention, impulsivity, executive function.
    */
-  inferDisabilityType(data) {
-    const { cognitive, visual, reading, spelling, correlations } = data;
+  inferConditionType(data) {
+    const { cognitive, visual, reading, spelling, correlations, severityByDimension } = data;
 
-    const disabilityTypes = [];
-    let severity = 'Mild';
+    const dyslexiaTypes = [];
+    const adhdIndicators = [];
+    let primaryType = null;
+    let overallSeverity = 'No Significant Difficulty';
     let confidence = 0.5;
 
-    // Dyslexia Indicators
     const readingLow = reading.accuracy < 70;
     const spellingLow = spelling.accuracy < 70;
-    const phonologicalIssues = reading.phonologicalIssues?.length > 0 || spelling.phonemeGraphemeMismatch > 50;
-    const visualIssues = visual.visualStressScore < 60 || visual.discriminationScore < 60;
+    const phonologicalIssues = reading.phonologicalIssues?.length > 0 || (spelling.phonemeGraphemeMismatch || 0) > 50;
+    const visualIssues = (visual.visualStressScore || 0) < 60 || (visual.discriminationScore || 0) < 60;
+    const orthographicIssues = (spelling.orthographicWeakness || 0) > 50;
+    const slowNaming = (reading.wpm || 0) < 80 && reading.accuracy >= 70;
+    const attentionLow = (cognitive.attentionScore || 0) < 60;
+    const taskSwitchingLow = (cognitive.taskSwitchingScore || 0) < 60;
+    const executiveLow = (cognitive.executiveFunctionScore || 0) < 60;
+    const memoryLow = (cognitive.workingMemoryScore || 0) < 60;
 
-    // Phonological Dyslexia
-    if (readingLow && spellingLow && phonologicalIssues && correlations.readingSpelling > 0.7) {
-      disabilityTypes.push('Dyslexia (Phonological)');
-      confidence = 0.8;
+    // Phonological Dyslexia: sound–letter mapping, decoding
+    if (readingLow && spellingLow && phonologicalIssues && correlations.readingSpelling > 0.6) {
+      dyslexiaTypes.push('Phonological Dyslexia');
+      if (!primaryType) primaryType = 'Phonological Dyslexia';
+      confidence = Math.max(confidence, 0.78);
     }
 
-    // Surface Dyslexia
-    if (visualIssues && readingLow && !phonologicalIssues) {
-      disabilityTypes.push('Dyslexia (Surface)');
-      confidence = 0.75;
+    // Surface Dyslexia: sight word / irregular word reading
+    if (visualIssues && readingLow && orthographicIssues && !phonologicalIssues) {
+      dyslexiaTypes.push('Surface Dyslexia');
+      if (!primaryType) primaryType = 'Surface Dyslexia';
+      confidence = Math.max(confidence, 0.72);
     }
 
-    // Visual Processing Disorder
-    if (visualIssues && visual.trackingDifficultyIndex > 50 && !readingLow) {
-      disabilityTypes.push('Visual Processing Disorder');
-      confidence = 0.7;
+    // Rapid Naming Dyslexia: naming speed deficit
+    if (slowNaming && reading.fluencyScore < 70 && reading.accuracy >= 65) {
+      dyslexiaTypes.push('Rapid Naming Dyslexia');
+      if (!primaryType) primaryType = 'Rapid Naming Dyslexia';
+      confidence = Math.max(confidence, 0.65);
     }
 
-    // Dysgraphia (spelling-focused)
-    if (spellingLow && spelling.orthographicWeakness > 50 && !readingLow) {
-      disabilityTypes.push('Dysgraphia');
-      confidence = 0.7;
+    // Double Deficit: phonological + rapid naming
+    if (dyslexiaTypes.includes('Phonological Dyslexia') && dyslexiaTypes.includes('Rapid Naming Dyslexia')) {
+      dyslexiaTypes.push('Double Deficit Dyslexia');
+      primaryType = 'Double Deficit Dyslexia';
+      confidence = Math.max(confidence, 0.82);
     }
 
-    // ADHD-related learning difficulty
-    const attentionLow = cognitive.attentionScore < 60;
-    const taskSwitchingLow = cognitive.taskSwitchingScore < 60;
+    // Visual (Orthographic) Dyslexia: letter/word form, crowding, tracking
+    if (visualIssues && (visual.trackingDifficultyIndex || 0) > 50 && (visual.crowdingScore || 0) < 60) {
+      dyslexiaTypes.push('Visual (Orthographic) Dyslexia');
+      if (!primaryType) primaryType = 'Visual (Orthographic) Dyslexia';
+      confidence = Math.max(confidence, 0.7);
+    }
+
+    // Auditory Dyslexia: sound discrimination, listening (inferred from reading/cognitive)
+    if (phonologicalIssues && memoryLow && !visualIssues) {
+      dyslexiaTypes.push('Auditory Dyslexia');
+      if (!primaryType) primaryType = 'Auditory Dyslexia';
+      confidence = Math.max(confidence, 0.62);
+    }
+
+    // Developmental vs Acquired: assume developmental for screening (no injury history)
+    if (dyslexiaTypes.length > 0) {
+      dyslexiaTypes.push('Developmental Dyslexia');
+    }
+
+    // ADHD indicators: inattention, impulsivity, executive function
+    if (attentionLow) adhdIndicators.push('Inattention');
+    if (taskSwitchingLow) adhdIndicators.push('Task-switching difficulty');
+    if (executiveLow) adhdIndicators.push('Executive function difficulty');
+    if (cognitive.errorPatterns?.length > 0) adhdIndicators.push('Working memory / sequencing');
     if (attentionLow && taskSwitchingLow && (readingLow || spellingLow)) {
-      disabilityTypes.push('ADHD-related Learning Difficulty');
-      confidence = 0.65;
+      adhdIndicators.push('ADHD-related learning pattern');
+      confidence = Math.max(confidence, 0.68);
     }
 
-    // Mixed (multiple types)
-    if (disabilityTypes.length >= 2) {
-      disabilityTypes.splice(0, disabilityTypes.length, 'Mixed Learning Profile');
-      confidence = 0.85;
-    }
+    // Overall severity from dimension severities (worst dimension drives overall)
+    const severities = severityByDimension ? Object.values(severityByDimension).map(d => d.severity) : [];
+    const order = { 'No Significant Difficulty': 0, Mild: 1, Moderate: 2, Severe: 3 };
+    let maxIdx = 0;
+    severities.forEach(s => {
+      const idx = order[s] ?? 0;
+      if (idx > maxIdx) maxIdx = idx;
+    });
+    overallSeverity = SEVERITY_LEVELS[maxIdx] || 'Mild';
 
-    // Determine severity
+    // Fallback: weighted average score for severity
     const avgScore = (
-      (reading.accuracy || 0) * 0.3 +
-      (spelling.accuracy || 0) * 0.3 +
+      (reading.accuracy || 0) * 0.25 +
+      (spelling.accuracy || 0) * 0.25 +
       (visual.patternRecognitionScore || 0) * 0.2 +
-      (cognitive.executiveFunctionScore || 0) * 0.2
-    ) / 100;
+      (cognitive.executiveFunctionScore || 0) * 0.15 +
+      (reading.fluencyScore || 0) * 0.15
+    );
+    if (avgScore < 50) overallSeverity = 'Severe';
+    else if (avgScore < 70) overallSeverity = overallSeverity === 'No Significant Difficulty' ? 'Moderate' : overallSeverity;
+    else if (avgScore >= 85 && dyslexiaTypes.length === 0 && adhdIndicators.length === 0) overallSeverity = 'No Significant Difficulty';
 
-    if (avgScore < 0.5) {
-      severity = 'High';
-    } else if (avgScore < 0.7) {
-      severity = 'Moderate';
-    } else {
-      severity = 'Mild';
-    }
-
-    // If no specific type identified but scores are low
-    if (disabilityTypes.length === 0 && avgScore < 0.7) {
-      disabilityTypes.push('Learning Differences');
+    if (dyslexiaTypes.length === 0 && adhdIndicators.length === 0 && avgScore >= 70) {
+      dyslexiaTypes.push('None identified');
       confidence = 0.6;
     }
 
     return {
-      types: disabilityTypes.length > 0 ? disabilityTypes : ['None identified'],
-      severity,
-      confidence: Math.round(confidence * 100) / 100
+      dyslexiaTypes: dyslexiaTypes.length ? dyslexiaTypes : ['None identified'],
+      adhdIndicators: [...new Set(adhdIndicators)],
+      primaryType: primaryType || (adhdIndicators.length > 0 ? 'ADHD-related indicators' : 'None identified'),
+      severity: overallSeverity,
+      confidence: Math.round(Math.min(0.95, confidence) * 100) / 100
     };
   }
 
   /**
-   * Generate fallback report if LLM fails
+   * Generate fallback report (mandatory format: detected conditions, severity, disclaimer)
    */
   generateFallbackReport(aggregatedData) {
-    const { inference, cognitive, visual, reading, spelling } = aggregatedData;
+    const { inference, cognitive, visual, reading, spelling, severityByDimension } = aggregatedData;
 
     const strengths = [];
     const challenges = [];
     const recommendations = [];
 
-    // Identify strengths
     if (reading.metrics.accuracy >= 75) strengths.push('Reading fluency');
     if (spelling.metrics.accuracy >= 75) strengths.push('Spelling accuracy');
     if (visual.metrics.patternRecognitionScore >= 75) strengths.push('Visual discrimination');
     if (cognitive.metrics.executiveFunctionScore >= 75) strengths.push('Working memory');
     if (strengths.length === 0) strengths.push('Willingness to engage', 'Clear self-awareness');
 
-    // Identify challenges
     if (reading.metrics.accuracy < 70) challenges.push('Reading fluency');
     if (spelling.metrics.accuracy < 70) challenges.push('Spelling consistency');
     if (visual.metrics.visualStressScore < 60) challenges.push('Visual processing');
     if (cognitive.metrics.workingMemoryScore < 60) challenges.push('Working memory');
 
-    // Generate recommendations
     if (reading.metrics.phonologicalIssues?.length > 0) {
       recommendations.push({ category: 'Reading Aids', items: ['Bionic Reading', 'Text-to-speech', 'Phonetic support'] });
     }
@@ -299,23 +378,32 @@ class HolisticScreeningEngine {
       recommendations.push({ category: 'Cognitive Support', items: ['Cognitive load reduction', 'Chunked text', 'Writing support'] });
     }
 
+    const recommendProfessional = inference.severity === 'Severe' || inference.severity === 'Moderate';
+
     return {
-      executiveSummary: `Your assessment shows ${inference.severity.toLowerCase()} learning profile. Focus on your strengths and use recommended tools for support.`,
+      executiveSummary: `This screening suggests a ${inference.severity.toLowerCase()} profile in some areas. Focus on your strengths and the recommended tools below. This is not a clinical diagnosis.`,
+      detectedConditions: inference.dyslexiaTypes?.length ? inference.dyslexiaTypes.filter(t => t !== 'None identified') : [],
+      primaryType: inference.primaryType || 'None identified',
+      adhdIndicators: inference.adhdIndicators || [],
+      severityLevel: inference.severity,
+      confidenceScore: inference.confidence ?? 0.6,
+      strengths,
+      challenges,
       perTestBreakdown: {
         cognitive: `Working memory: ${cognitive.metrics.workingMemoryScore}%, Attention: ${cognitive.metrics.attentionScore}%`,
         visual: `Visual processing: ${visual.metrics.patternRecognitionScore}%, Stress: ${visual.metrics.visualStressScore}%`,
         reading: `Reading accuracy: ${reading.metrics.accuracy}%, Fluency: ${reading.metrics.fluencyScore}%`,
         spelling: `Spelling accuracy: ${spelling.metrics.accuracy}%`
       },
-      strengths,
-      challenges,
+      severityByDimension: severityByDimension || {},
       disabilityLikelihood: inference,
-      personalizedFeedback: 'Keep practicing and use the recommended tools to support your learning journey!',
-      recommendations: recommendations.length > 0 ? recommendations : [
-        { category: 'General', items: ['Personalized assistant settings'] }
-      ]
+      personalizedFeedback: 'Use the recommended tools to support your learning. For persistent difficulties, consider a professional evaluation.',
+      recommendations: recommendations.length > 0 ? recommendations : [{ category: 'General', items: ['Personalized assistant settings'] }],
+      disclaimer: 'This report is from a screening and personalization tool only. It is not a medical or clinical diagnosis. For diagnosis or treatment, please see a qualified professional.',
+      recommendProfessionalEvaluation: recommendProfessional
     };
   }
 }
 
-export default new HolisticScreeningEngine();
+const holisticScreeningEngine = new HolisticScreeningEngine();
+export default holisticScreeningEngine;

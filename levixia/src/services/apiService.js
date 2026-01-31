@@ -144,15 +144,16 @@ class ApiService {
   }
 
   /**
-   * Get adaptive configuration
+   * Get adaptive configuration (defect-based when report provided)
    * @param {Object} userProfile - User learning profile
    * @param {Object} input - Input data
+   * @param {Object} report - Screening report (challenges, recommendedFeatures) for defect-based config
    * @returns {Promise<Object>} - Adaptive configuration
    */
-  async getAdaptiveConfig(userProfile, input) {
+  async getAdaptiveConfig(userProfile, input, report) {
     return this.request('/api/assistant/configure', {
       method: 'POST',
-      body: { userProfile, input }
+      body: { userProfile, input, report }
     });
   }
 
@@ -224,4 +225,5 @@ class ApiService {
   }
 }
 
-export default new ApiService();
+const apiService = new ApiService();
+export default apiService;

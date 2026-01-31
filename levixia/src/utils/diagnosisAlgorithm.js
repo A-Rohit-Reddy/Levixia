@@ -16,21 +16,27 @@ export async function computeReportFromResults(results) {
     
     // Extract LLM-generated report or fallback
     const llmReport = screeningResults.report || {};
-    const inference = screeningResults.inference || { types: ['None identified'], severity: 'Mild', confidence: 0.5 };
-    
-    // Map to existing report structure for compatibility
-    const dyslexiaTypes = inference.types || [];
-    const level = inference.severity?.toLowerCase() || 'mild';
-    
-    // Combine cognitive and visual indicators
+    const inference = screeningResults.inference || {
+      dyslexiaTypes: ['None identified'],
+      adhdIndicators: [],
+      primaryType: 'None identified',
+      severity: 'Mild',
+      confidence: 0.5
+    };
+
+    const dyslexiaTypes = inference.dyslexiaTypes || inference.types || [];
+    const rawLevel = (inference.severity || inference.severityLevel || llmReport.severityLevel || 'Mild').toLowerCase().replace(/\s+/g, '-');
+    const level = ['no-significant-difficulty', 'mild', 'moderate', 'severe'].includes(rawLevel) ? rawLevel : (rawLevel === 'high' ? 'severe' : 'mild');
+
     const cognitiveIndicators = [
       ...(screeningResults.cognitive?.metrics?.indicators || []),
-      ...(screeningResults.visual?.metrics?.indicators || [])
+      ...(screeningResults.visual?.metrics?.indicators || []),
+      ...(llmReport.adhdIndicators || inference.adhdIndicators || [])
     ];
     
     // Extract strengths and challenges from LLM report or fallback
-    const strengths = llmReport.strengths || screeningResults.report?.strengths || ['Willingness to use tools', 'Clear self-awareness'];
-    const challenges = llmReport.challenges || screeningResults.report?.challenges || [];
+    const strengths = llmReport.strengths || ['Willingness to use tools', 'Clear self-awareness'];
+    const challenges = llmReport.challenges || [];
     
     // Extract recommendations
     const recommendedFeatures = [];
@@ -58,13 +64,12 @@ export async function computeReportFromResults(results) {
       cognitiveIndicators: [...new Set(cognitiveIndicators)],
       level,
       strengths: [...new Set(strengths)],
-      challenges: challenges.length ? [...new Set(challenges)] : ['Reading fluency', 'Spelling consistency'],
+      challenges: challenges.length ? [...new Set(challenges)] : [],
       recommendedFeatures: [...new Set(recommendedFeatures)],
       completed: true,
-      // Enhanced data from screening engine
       _screeningData: screeningResults,
       _llmReport: llmReport,
-      // Attach raw scores for Report page display
+      _inference: inference,
       _scores: {
         readingAccuracy: reading.accuracyPercent ?? 0,
         spellingAccuracy: spelling.accuracyPercent ?? 0,
@@ -138,7 +143,6 @@ function computeReportFromResultsFallback(results) {
   }
   if (dyslexiaTypes.length === 0) dyslexiaTypes.push('None identified');
 
-  // Severity
   const weights = { reading: 0.3, spelling: 0.3, visual: 0.2, cognitive: 0.2 };
   const weighted =
     (readingAccuracy / 100) * weights.reading +
@@ -149,8 +153,8 @@ function computeReportFromResultsFallback(results) {
   let level = 'mild';
   if (deficit >= 0.5) level = 'severe';
   else if (deficit >= 0.3) level = 'moderate';
+  else if (deficit < 0.15) level = 'no-significant-difficulty';
 
-  // Strengths
   if (readingAccuracy >= 75) strengths.push('Reading fluency');
   if (spellingAccuracy >= 75) strengths.push('Spelling accuracy');
   if (visualAccuracy >= 75) strengths.push('Visual discrimination');
@@ -164,9 +168,15 @@ function computeReportFromResultsFallback(results) {
     cognitiveIndicators,
     level,
     strengths: [...new Set(strengths)],
-    challenges: challenges.length ? [...new Set(challenges)] : ['Reading fluency', 'Spelling consistency'],
+    challenges: challenges.length ? [...new Set(challenges)] : [],
     recommendedFeatures: [...new Set(recommendedFeatures)],
     completed: true,
+    _llmReport: {
+      severityLevel: level === 'severe' ? 'Severe' : level === 'moderate' ? 'Moderate' : level === 'no-significant-difficulty' ? 'No Significant Difficulty' : 'Mild',
+      primaryType: dyslexiaTypes[0] || 'None identified',
+      disclaimer: 'This report is from a screening and personalization tool only. It is not a medical or clinical diagnosis.',
+      recommendProfessionalEvaluation: level === 'severe' || level === 'moderate'
+    },
     _scores: {
       readingAccuracy,
       spellingAccuracy,

@@ -13,6 +13,7 @@ const nlpPipeline = require('../services/nlpPipeline');
 const accessibilityEngine = require('../services/accessibilityEngine');
 const performanceTracker = require('../services/performanceTracker');
 const adaptiveLearningEngine = require('../services/adaptiveLearningEngine');
+const writingFeedbackService = require('../services/writingFeedbackService');
 
 /**
  * POST /api/assistant/profile
@@ -42,21 +43,29 @@ router.post('/profile', async (req, res) => {
 
 /**
  * POST /api/assistant/configure
- * Get adaptive configuration for current task
+ * Get adaptive configuration for current task (defect-based only when report/detectedDefects provided)
  */
 router.post('/configure', async (req, res) => {
   try {
-    const { userProfile, input } = req.body;
+    const { userProfile, input, detectedDefects, report } = req.body;
 
     if (!userProfile || !input) {
       return res.status(400).json({ error: 'Missing userProfile or input' });
     }
 
+    const inputWithDefects = {
+      ...input,
+      detectedDefects: detectedDefects || (report ? {
+        challenges: report.challenges || [],
+        recommendedFeatures: report.recommendedFeatures || []
+      } : null)
+    };
+
     // Detect context
     const context = await contextDetector.detectContext(input);
 
-    // Generate adaptive configuration
-    const config = await adaptiveAssistant.generateConfig(userProfile, context, input);
+    // Generate adaptive configuration (only features from screening defects)
+    const config = await adaptiveAssistant.generateConfig(userProfile, context, inputWithDefects);
 
     res.json(config);
   } catch (error) {
@@ -125,7 +134,7 @@ router.post('/process', async (req, res) => {
 
 /**
  * POST /api/assistant/analyze-writing
- * Analyze writing and provide feedback
+ * Analyze writing: with reference = compare accuracy; without reference = detect errors, suggest corrections, feedback, ways to overcome
  */
 router.post('/analyze-writing', async (req, res) => {
   try {
@@ -135,14 +144,25 @@ router.post('/analyze-writing', async (req, res) => {
       return res.status(400).json({ error: 'Missing userText' });
     }
 
-    console.log('✍️ Analyzing writing');
+    // Standalone writing (no reference): detect errors, suggestions, feedback, ways to overcome
+    if (!referenceText || !referenceText.trim()) {
+      console.log('✍️ Analyzing standalone writing (error detection + feedback)');
+      const analysis = await writingFeedbackService.analyzeStandalone(userText, userProfile || {});
+      return res.json({
+        ...analysis,
+        mode: 'standalone'
+      });
+    }
 
+    // Compare to reference (accuracy)
+    console.log('✍️ Analyzing writing (compare to reference)');
     const analysis = await nlpPipeline.analyzeWriting(userText, referenceText);
 
     res.json({
       ...analysis,
       suggestions: analysis.suggestions || [],
-      feedback: generateWritingFeedback(analysis, userProfile)
+      feedback: generateWritingFeedback(analysis, userProfile),
+      mode: 'compare'
     });
   } catch (error) {
     console.error('Writing analysis error:', error);

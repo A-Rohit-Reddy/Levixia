@@ -2,15 +2,74 @@
  * User Profile Engine
  * Creates persistent learning profile from assessment results
  * Single source of truth for personalization
+ * AI assistant only enables features that map to defects detected in screening (report.challenges / report.recommendedFeatures)
  */
 
 const geminiService = require('./geminiService');
 
+// Map screening report recommendedFeatures (display names) to profile enabledFeatures keys
+const RECOMMENDED_TO_FEATURE = {
+  'Bionic Reading': 'bionicReading',
+  'bionic reading': 'bionicReading',
+  'Dyslexia-friendly font': 'dyslexiaFont',
+  'dyslexia-friendly font': 'dyslexiaFont',
+  'Open Dyslexic': 'dyslexiaFont',
+  'Letter and line spacing': 'smartSpacing',
+  'Letter spacing': 'smartSpacing',
+  'letter and line spacing': 'smartSpacing',
+  'Color & contrast': 'smartSpacing',
+  'Color contrast': 'smartSpacing',
+  'Text-to-speech': 'tts',
+  'text-to-speech': 'tts',
+  'Writing support': 'writingSupport',
+  'Writing support rules': 'writingSupport',
+  'Spelling suggestions': 'writingSupport',
+  'writing support': 'writingSupport',
+  'Cognitive load reduction': 'cognitiveLoadReduction',
+  'Chunked text': 'cognitiveLoadReduction',
+  'chunked text': 'cognitiveLoadReduction',
+  'Focus line highlighting': 'focusMode',
+  'Focus line': 'focusMode',
+  'Phonetic support': 'tts',
+  'Phonetic spelling support': 'writingSupport',
+  'Personalized assistant settings': null, // no single feature
+};
+
+/**
+ * Restrict enabledFeatures to only those recommended by screening (defect-based only)
+ */
+function restrictToDetectedDefects(profile, report) {
+  const recommended = (report.recommendedFeatures || []).map(r => typeof r === 'string' ? r.trim() : '');
+  const challenges = (report.challenges || []).map(c => typeof c === 'string' ? c.trim() : '');
+  const enabledByDefect = {};
+
+  for (const rec of recommended) {
+    const key = RECOMMENDED_TO_FEATURE[rec] || RECOMMENDED_TO_FEATURE[rec.toLowerCase()];
+    if (key) enabledByDefect[key] = true;
+  }
+  // If challenges mention writing/spelling, ensure writingSupport if recommended
+  if (challenges.some(c => /spelling|writing/i.test(c)) && (recommended.some(r => /writing|spelling/i.test(r)))) {
+    enabledByDefect.writingSupport = true;
+  }
+  if (challenges.some(c => /reading|visual/i.test(c)) && (recommended.some(r => /reading|font|spacing|bionic/i.test(r)))) {
+    enabledByDefect.bionicReading = enabledByDefect.bionicReading ?? !!recommended.find(r => /bionic|reading/i.test(r));
+    enabledByDefect.dyslexiaFont = enabledByDefect.dyslexiaFont ?? !!recommended.find(r => /font|dyslexia/i.test(r));
+    enabledByDefect.smartSpacing = enabledByDefect.smartSpacing ?? !!recommended.find(r => /spacing|letter|line/i.test(r));
+  }
+
+  const featureKeys = ['bionicReading', 'dyslexiaFont', 'smartSpacing', 'tts', 'writingSupport', 'cognitiveLoadReduction', 'focusMode'];
+  const restricted = {};
+  for (const k of featureKeys) {
+    restricted[k] = !!enabledByDefect[k];
+  }
+  return { ...profile, enabledFeatures: restricted };
+}
+
 class UserProfileEngine {
   /**
-   * Generate comprehensive user learning profile
+   * Generate comprehensive user learning profile (defect-based only: only features matching screening report)
    * @param {Object} assessmentResults - { cognitive, visual, reading, spelling }
-   * @param {Object} report - Diagnostic report
+   * @param {Object} report - Diagnostic report (challenges, recommendedFeatures)
    * @returns {Promise<Object>} - User learning profile
    */
   async generateProfile(assessmentResults, report) {
@@ -129,7 +188,7 @@ Return JSON:
       const profile = await geminiService.generateJSON('user profile generation', prompt);
       
       // Validate and ensure all required fields
-      return {
+      const rawProfile = {
         enabledFeatures: {
           bionicReading: profile.enabledFeatures?.bionicReading ?? false,
           dyslexiaFont: profile.enabledFeatures?.dyslexiaFont ?? false,
@@ -168,6 +227,8 @@ Return JSON:
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+      // Restrict to defect-based only: only enable features that match screening report
+      return restrictToDetectedDefects(rawProfile, report);
     } catch (error) {
       console.error('Profile generation failed, using rule-based fallback:', error);
       return this.generateFallbackProfile(assessmentResults, report);
@@ -189,7 +250,7 @@ Return JSON:
     const cognitiveAccuracy = cognitive.accuracy || 0;
     const spellingAccuracy = spelling.accuracyPercent || 0;
 
-    return {
+    const fallbackProfile = {
       enabledFeatures: {
         bionicReading: readingAccuracy < 70 || visualStress < 60,
         dyslexiaFont: visualAccuracy < 60 || visualStress < 60,
@@ -228,6 +289,7 @@ Return JSON:
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+    return restrictToDetectedDefects(fallbackProfile, report);
   }
 
   /**

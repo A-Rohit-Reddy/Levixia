@@ -113,3 +113,27 @@
   color: var(--levixia-cyan);
   margin: 0.25rem 0;
 }
+
+.report-professional-banner {
+  background: rgba(255, 215, 0, 0.12);
+  border-left: 4px solid var(--levixia-warning, #ffd700);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  color: var(--levixia-text-primary);
+}
+
+.report-disclaimer {
+  background: rgba(107, 115, 148, 0.1);
+  border: 1px solid var(--levixia-border);
+  border-radius: var(--levixia-radius);
+  padding: 1rem;
+}
+
+.report-disclaimer .report-desc {
+  font-size: 0.95rem;
+}
+
+.badge-confidence {
+  background: rgba(107, 115, 148, 0.2);
+  color: var(--levixia-text-secondary);
+}
