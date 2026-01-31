@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import apiService from '../../services/apiService';
+import './Assessment.css'; // Make sure to import the CSS
 
 const MIN_LENGTH = 4;
 const MAX_LENGTH = 8;
@@ -113,13 +114,9 @@ export default function CognitiveTest({ onComplete }) {
       setIsAnalyzing(true);
 
       try {
-        // Call backend AI analysis
         const analysis = await apiService.analyzeCognitive(rawData);
-
-        // Combine raw data with AI analysis
         onComplete({
           type: 'cognitive',
-          // Raw data
           correct: totalCorrect,
           total: totalAttempts,
           accuracy,
@@ -129,7 +126,6 @@ export default function CognitiveTest({ onComplete }) {
           userSequence: userSequence,
           responseTimes: allResponseTimes,
           rounds: allRounds,
-          // AI analysis results
           workingMemoryScore: analysis.workingMemoryScore,
           attentionScore: analysis.attentionScore,
           taskSwitchingScore: analysis.taskSwitchingScore,
@@ -140,7 +136,6 @@ export default function CognitiveTest({ onComplete }) {
         });
       } catch (error) {
         console.error('Cognitive analysis failed:', error);
-        // Fallback - send raw data without AI analysis
         onComplete({
           type: 'cognitive',
           correct: totalCorrect,
@@ -166,14 +161,12 @@ export default function CognitiveTest({ onComplete }) {
     advanceOrFinish();
   };
 
-  /* ---------- UI unchanged ---------- */
-
   if (isAnalyzing) {
     return (
       <div className="assessment-card">
         <h2>🧠 Cognitive & Memory Test</h2>
-        <p>AI is analyzing your performance...</p>
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+        <div className="loading-state">
+          <p>AI is analyzing your performance...</p>
           <div className="spinner" />
         </div>
       </div>
@@ -184,10 +177,10 @@ export default function CognitiveTest({ onComplete }) {
     return (
       <div className="assessment-card">
         <h2>🧠 Cognitive & Memory Test</h2>
-        <p>Memorize this sequence.</p>
+        <p className="instruction-text">Memorize this sequence.</p>
         <div className="memory-sequence">
           {sequence.map((num, i) => (
-            <div key={i} className="memory-item">{num}</div>
+            <div key={i} className="memory-item animate-pop">{num}</div>
           ))}
         </div>
       </div>
@@ -199,28 +192,33 @@ export default function CognitiveTest({ onComplete }) {
       <h2>🧠 Cognitive & Memory Test</h2>
 
       {roundCorrect && (
-        <p style={{ color: 'green', fontWeight: 600 }}>
+        <div className="success-banner">
           ✓ Correct! Increasing difficulty.
-        </p>
+        </div>
       )}
 
-      <p>Your sequence: {userSequence.join(' – ') || '...'}</p>
+      <div className="sequence-display">
+        <span className="label">Your sequence:</span>
+        <div className="sequence-values">
+          {userSequence.length > 0 ? userSequence.join(' – ') : <span className="placeholder">Tap numbers...</span>}
+        </div>
+      </div>
 
-      <div className="visual-test-grid">
+      <div className="numeric-keypad">
         {[1,2,3,4,5,6,7,8,9].map(num => (
-          <div
+          <button
             key={num}
-            className="visual-card"
+            className="keypad-btn"
             onClick={() => handleNumberClick(num)}
           >
             {num}
-          </div>
+          </button>
         ))}
       </div>
 
-      <div className="button-group">
-        <button onClick={() => setUserSequence([])}>Clear</button>
-        <button onClick={handleSubmit}>Submit</button>
+      <div className="action-footer">
+        <button className="btn btn-secondary" onClick={() => setUserSequence([])}>Clear</button>
+        <button className="btn btn-primary" onClick={handleSubmit}>Submit</button>
       </div>
     </div>
   );

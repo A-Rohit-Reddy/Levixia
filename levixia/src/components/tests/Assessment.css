@@ -1,0 +1,297 @@
+/* Assessment.css */
+
+/* --- Card & Layout --- */
+.assessment-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: center;
+    border: 1px solid #eef2f5;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  .assessment-card h2 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+  }
+  
+  .instruction-text {
+    color: #666;
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  /* --- Buttons --- */
+  .btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .btn-primary {
+    background: #3498db;
+    color: white;
+    box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background: #2980b9;
+    transform: translateY(-1px);
+  }
+  
+  .btn-secondary {
+    background: #ecf0f1;
+    color: #2c3e50;
+  }
+  
+  .btn-secondary:hover:not(:disabled) {
+    background: #bdc3c7;
+  }
+  
+  .btn-danger {
+    background: #e74c3c;
+    color: white;
+  }
+  
+  .btn-icon {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    color: #333;
+    width: 100%;
+    margin-bottom: 1rem;
+  }
+  
+  .full-width {
+    width: 100%;
+  }
+  
+  /* --- Inputs --- */
+  .assessment-input {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  
+  .assessment-input:focus {
+    outline: none;
+    border-color: #3498db;
+  }
+  
+  /* --- Cognitive Test Specifics --- */
+  .numeric-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    max-width: 300px;
+    margin: 1.5rem auto;
+  }
+  
+  .keypad-btn {
+    aspect-ratio: 1;
+    background: #fff;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  
+  .keypad-btn:active {
+    background: #3498db;
+    color: white;
+    border-color: #3498db;
+  }
+  
+  .memory-sequence {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin: 2rem 0;
+    min-height: 60px;
+  }
+  
+  .memory-item {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  .sequence-display {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    color: #2c3e50;
+  }
+  
+  .sequence-values {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #34495e;
+    letter-spacing: 2px;
+    min-height: 2rem;
+  }
+  
+  .action-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  
+  /* --- Reading Test Specifics --- */
+  .reading-passage-container {
+    padding: 2.5rem;
+    border-left: 4px solid #3498db;
+    border-radius: 4px;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+  
+  .reading-passage {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    color: #333;
+  }
+  
+  .reading-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  
+  .status-badge.ready {
+    background: #e0f7fa;
+    color: #006064;
+  }
+  
+  .status-badge.recording {
+    background: #ffebee;
+    color: #c62828;
+  }
+  
+  .pulse-dot {
+    width: 10px;
+    height: 10px;
+    background: #c62828;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  
+  /* --- Visual Test Specifics --- */
+  .visual-grid-container {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* 5 columns for 20 items */
+    gap: 10px;
+    margin: 1.5rem 0;
+  }
+  
+  .letter-card {
+    background: #fff;
+    border: 2px solid #eef2f5;
+    border-radius: 8px;
+    padding: 1rem 0;
+    font-size: 1.8rem;
+    font-family: 'OpenDyslexic', sans-serif; /* Fallback if not loaded */
+    cursor: pointer;
+    transition: transform 0.1s, border-color 0.1s;
+    user-select: none;
+  }
+  
+  .letter-card:hover {
+    border-color: #bdc3c7;
+    transform: translateY(-2px);
+  }
+  
+  .selected-correct {
+    background: #2ecc71 !important;
+    color: white !important;
+    border-color: #27ae60 !important;
+  }
+  
+  .selected-wrong {
+    background: #e74c3c !important;
+    color: white !important;
+    border-color: #c0392b !important;
+  }
+  
+  .target-letter {
+    font-size: 1.2em;
+    background: #fff3cd;
+    padding: 0 6px;
+    border-radius: 4px;
+  }
+  
+  .visual-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
+  }
+  
+  /* --- Loading & Misc --- */
+  .loading-state {
+    padding: 2rem;
+    color: #7f8c8d;
+  }
+  
+  .spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    margin: 1rem auto;
+  }
+  
+  .success-banner {
+    background: #d4edda;
+    color: #155724;
+    padding: 0.5rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    font-weight: 600;
+  }
+  
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

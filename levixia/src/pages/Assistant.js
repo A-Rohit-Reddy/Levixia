@@ -235,7 +235,13 @@ export default function Assistant() {
           {inputMode === 'voice' && (
             <div className="voice-controls">
               {!voiceRecording ? (
-                <button className="btn btn-primary" onClick={startVoiceInput}>🎤 Start Recording</button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={startVoiceInput} 
+                  style={{ color: '#0f172a', fontWeight: 'bold' }} /* CHANGED: Added dark color */
+                >
+                  🎤 Start Recording
+                </button>
               ) : (
                 <button className="btn btn-danger" onClick={stopVoiceInput}>⏹ Stop Recording</button>
               )}

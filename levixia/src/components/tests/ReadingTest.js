@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUser } from '../../context/UserContext';
 import apiService from '../../services/apiService';
+import './Assessment.css';
 
 export default function ReadingTest({ onComplete }) {
   const [status, setStatus] = useState('loading');
@@ -22,7 +23,6 @@ export default function ReadingTest({ onComplete }) {
         setPassage(data.text);
       } catch (error) {
         console.error('Failed to generate passage:', error);
-        // Fallback passage
         setPassage(
           "The ship sailed across the ocean. The captain shared the treasure."
         );
@@ -75,7 +75,6 @@ export default function ReadingTest({ onComplete }) {
     setFinalTranscript(transcript);
 
     try {
-      // Call backend AI analysis
       const report = await apiService.analyzeReading(
         passage,
         transcript,
@@ -99,12 +98,10 @@ export default function ReadingTest({ onComplete }) {
       });
     } catch (error) {
       console.error('Reading analysis failed:', error);
-      // Fallback - basic calculation only
       const totalWords = passage.split(/\s+/).length;
       const spokenWords = transcript.split(/\s+/).length;
       const wpm = timeElapsed > 0 ? Math.round((spokenWords / timeElapsed) * 60) : 0;
       
-      // Simple word-level accuracy
       const originalWords = passage.toLowerCase().split(/\s+/);
       const transcriptWords = transcript.toLowerCase().split(/\s+/);
       let matches = 0;
@@ -133,21 +130,49 @@ export default function ReadingTest({ onComplete }) {
   };
 
   if (status === 'loading')
-    return <div className="assessment-card"><h2>📖 Reading Assessment</h2><p>AI is generating a passage for you...</p></div>;
+    return (
+      <div className="assessment-card">
+        <h2>📖 Reading Assessment</h2>
+        <div className="loading-state">
+           <p>AI is generating a passage for you...</p>
+           <div className="spinner" />
+        </div>
+      </div>
+    );
 
   if (status === 'analyzing')
-    return <div className="assessment-card"><h2>📖 Reading Assessment</h2><p>AI is analyzing your reading performance...</p><div style={{ textAlign: 'center', marginTop: '2rem' }}><div className="spinner" /></div></div>;
+    return (
+      <div className="assessment-card">
+        <h2>📖 Reading Assessment</h2>
+        <div className="loading-state">
+          <p>AI is analyzing your reading performance...</p>
+          <div className="spinner" />
+        </div>
+      </div>
+    );
 
   return (
     <div className="assessment-card">
       <h2>📖 Reading Assessment</h2>
+      <p className="instruction-text">Read the following passage aloud:</p>
 
-      <div className="reading-passage">{passage}</div>
+      <div className="reading-passage-container">
+        <p className="reading-passage">{passage}</p>
+      </div>
 
-      <div style={{ marginTop: '2rem' }}>
-        <div>{isRecording ? `🔴 ${timeElapsed}s` : 'Ready'}</div>
+      <div className="reading-controls">
+        <div className={`status-badge ${isRecording ? 'recording' : 'ready'}`}>
+          {isRecording ? (
+            <>
+              <span className="pulse-dot"></span> Recording: {timeElapsed}s
+            </>
+          ) : 'Ready to Start'}
+        </div>
 
-        <button onClick={isRecording ? stopAndGrade : startRecording}>
+        <button 
+          className={`btn ${isRecording ? 'btn-danger' : 'btn-primary'}`} 
+          onClick={isRecording ? stopAndGrade : startRecording}
+        >
           {isRecording ? 'Stop & Analyze' : 'Start Reading'}
         </button>
       </div>
